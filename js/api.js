@@ -19,13 +19,17 @@ export function chiqish() {
 }
 
 // Funksiya bazaga yaqin mintaqada ishlasin (baza — Singapur). Aks holda har so'rov qit'alararo boradi: 5–8 s o'rniga ~1 s.
-const MINTAQA = 'forceFunctionRegion=ap-southeast-1';
+const MINTAQA = API.includes('localhost') ? '' : '?forceFunctionRegion=ap-southeast-1';
 
-async function sorov(yol, opt = {}) {
-  const token = sessiya();
-  const r = await fetch(`${API}/${yol}${yol.includes('?') ? '&' : '?'}${API.includes('localhost') ? '' : MINTAQA}`, {
-    ...opt,
-    headers: { ...(opt.body ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
+/**
+ * Hamma so'rov — "oddiy" POST (text/plain, sarlavhasiz): brauzer CORS oldindan so'rovini yubormaydi.
+ * Token tanada ketadi (manzilda emas — loglarga tushmaydi).
+ */
+async function sorov(yol, amal, p) {
+  const r = await fetch(`${API}/${yol}${MINTAQA}`, {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({ t: sessiya(), amal, p }),
   }).catch(() => { throw new Error('Internet yoki server bilan aloqa yo\'q'); });
   const j = await r.json().catch(() => ({}));
   if (r.status === 401 && yol !== 'kirish') { chiqish(); throw new KirishKerak(j.xato || 'Kirish kerak'); }
@@ -33,17 +37,48 @@ async function sorov(yol, opt = {}) {
   return j;
 }
 
-export function ol(yol, params) {
-  const q = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '')).toString() : '';
-  return sorov(yol + q);
+// ─── Kesh: qaytib kelganda sahifa darhol chiqadi, ma'lumot fonda yangilanadi ───
+const kesh = new Map();          // kalit → { vaqt, j }
+const YANGI = 20_000, ESKI = 15 * 60_000;
+export const hodisa = { yangilandi: null };   // fonda yangi ma'lumot kelsa — sahifani qayta chizish
+
+const kalit = (yol, p) => yol + '?' + new URLSearchParams(Object.entries(p ?? {}).filter(([, v]) => v != null && v !== '').map(([a, b]) => [a, String(b)])).toString();
+
+export async function ol(yol, p) {
+  const k = kalit(yol, p);
+  const x = kesh.get(k);
+  if (x && Date.now() - x.vaqt < ESKI) {
+    if (Date.now() - x.vaqt > YANGI && !x.yuklanmoqda) {
+      x.yuklanmoqda = true;
+      sorov(yol, 'ol', p).then((j) => {
+        const ozgardi = JSON.stringify(j) !== JSON.stringify(x.j);
+        kesh.set(k, { vaqt: Date.now(), j });
+        if (ozgardi) hodisa.yangilandi?.(k);
+      }).catch(() => { x.yuklanmoqda = false; });
+    }
+    return x.j;
+  }
+  const j = await sorov(yol, 'ol', p);
+  kesh.set(k, { vaqt: Date.now(), j });
+  return j;
 }
 
-export function yoz(yol, body) {
-  return sorov(yol, { method: 'POST', body: JSON.stringify(body ?? {}) });
+/** Fonda oldindan yuklash (sahifalar orasida yurish darhol bo'lsin). Xatolar e'tiborsiz. */
+export async function oldindan(royxat) {
+  for (const [yol, p] of royxat) {
+    if (kesh.has(kalit(yol, p))) continue;
+    try { kesh.set(kalit(yol, p), { vaqt: Date.now(), j: await sorov(yol, 'ol', p) }); } catch { return; }
+  }
+}
+
+export async function yoz(yol, body) {
+  const j = await sorov(yol, 'yoz', body ?? {});
+  kesh.clear();   // ma'lumot o'zgardi — keshdagi hamma narsa eskirdi
+  return j;
 }
 
 export async function kirish(kod) {
-  const j = await sorov('kirish', { method: 'POST', body: JSON.stringify({ kod }) });
+  const j = await sorov('kirish', 'kirish', { kod });
   try { localStorage.setItem(KALIT, JSON.stringify({ token: j.sessiya, exp: Date.now() + j.muddat * 1000 - 60_000 })); } catch { /* */ }
   return j;
 }

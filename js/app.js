@@ -1,7 +1,7 @@
 // Dashboard karkasi: kirish, menyu, mavzu, sahifalar orasida yurish (#/manzil).
 
-import { chiqish, kirish, KirishKerak, ol, sessiya } from './api.js';
-import { guruh, sana } from './fmt.js';
+import { chiqish, hodisa, kirish, KirishKerak, ol, oldindan, sessiya } from './api.js';
+import { bugun, guruh, sana } from './fmt.js';
 import { btn, el, ikon } from './ui.js';
 import { tipYashir } from './chart.js';
 
@@ -143,7 +143,15 @@ async function boshlash() {
   document.getElementById('shell').hidden = false;
   document.getElementById('chiqish').addEventListener('click', () => { chiqish(); kirishEkrani('Chiqdingiz.'); });
   addEventListener('hashchange', () => { chiz(); scrollTo(0, 0); });
+  // Fonda yangi ma'lumot kelsa — joriy sahifa jimgina qayta chiziladi (aylantirish joyi saqlanadi).
+  hodisa.yangilandi = () => { const y = scrollY; chiz().then(() => scrollTo(0, y)); };
   await chiz();
+  // Qolgan sahifalar ma'lumoti fonda: keyingi bosishlar darhol ochiladi.
+  const oy = bugun().slice(0, 7);
+  setTimeout(() => oldindan([
+    ['hisoblar'], ['byudjet', { oy }], ['tolovlar'], ['qarzlar'], ['tahlil', { oylar: 6 }],
+    ['loyiha', { id: ctx.katalog?.loyihalar?.[0]?.id }], ['maqsad'], ['kripto'], ['sozlamalar'],
+  ]), 800);
 }
 
 // Global yorliq: "n" — yangi yozuv (forma maydonida emas).
