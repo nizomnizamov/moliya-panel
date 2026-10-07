@@ -13,13 +13,19 @@ export async function chiz(view, ctx) {
   tools.append(el('span', 'sp'), btn('O\'tkazma', null, () => yozuvForma(ctx, { preset: { turi: 'otkazma' } })), btn('+ Hisob', 'btn-pri', () => hisobForma(ctx)));
 
   const faol = d.hisoblar.filter((h) => h.faol);
-  const jam = (f) => faol.filter((h) => f(h) && h.boshlangich_sana).reduce((s, h) => s + h.som, 0);
+  // Guruh jami: qoldig'i kiritilmagan hisob 0 deb sanalmaydi — noma'lumligi ko'rsatiladi.
+  const guruhKpi = (nom, f, izoh = () => '') => {
+    const roy = faol.filter(f), bor = roy.filter((h) => h.boshlangich_sana);
+    const jami = bor.reduce((s, h) => s + h.som, 0), yoq = roy.length - bor.length;
+    return kpi({ nom, qiymat: bor.length ? qisqa(jami) : '—', birlik: bor.length ? 'so\'m' : null,
+      izoh: yoq ? `${yoq} ta hisob qoldig'i kiritilmagan` : izoh(jami) });
+  };
   const stats = el('div', 'stats');
   stats.append(
-    kpi({ nom: 'Jami (shaxsiy)', qiymat: qisqa(jam((h) => h.turi !== 'loyiha')), birlik: 'so\'m', izoh: `${guruh(Math.round(jam((h) => h.turi !== 'loyiha') / d.kurs))} $ ekvivalent` }),
-    kpi({ nom: 'Kartalarda', qiymat: qisqa(jam((h) => h.turi === 'karta')), birlik: 'so\'m' }),
-    kpi({ nom: 'Naqd', qiymat: qisqa(jam((h) => h.turi === 'naqd')), birlik: 'so\'m', izoh: 'so\'m va dollar' }),
-    kpi({ nom: 'Jamg\'arma va birja', qiymat: qisqa(jam((h) => h.turi === 'jamgarma' || h.turi === 'birja')), birlik: 'so\'m' }),
+    guruhKpi('Jami (shaxsiy)', (h) => h.turi !== 'loyiha', (j) => `${guruh(Math.round(j / d.kurs))} $ ekvivalent`),
+    guruhKpi('Kartalarda', (h) => h.turi === 'karta'),
+    guruhKpi('Naqd', (h) => h.turi === 'naqd', () => 'so\'m va dollar'),
+    guruhKpi('Jamg\'arma va birja', (h) => h.turi === 'jamgarma' || h.turi === 'birja'),
   );
   view.append(stats);
 

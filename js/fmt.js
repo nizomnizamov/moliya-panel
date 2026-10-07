@@ -18,11 +18,11 @@ export function qisqa(n) {
   if (a >= 1e4) return s + Math.round(a / 1e3) + ' ming';
   return guruh(n);
 }
-/** O'q belgisi: 12m · 500k */
+/** O'q belgisi: 12m · 1,25m · 500k · 1,5k (kasr kerak bo'lsa — aks holda qo'shni belgilar bir xil chiqardi) */
 export function oq(n) {
   const a = Math.abs(n);
-  if (a >= 1e6) return String(+(n / 1e6).toFixed(1)).replace('.', ',') + 'm';
-  if (a >= 1e3) return String(+(n / 1e3).toFixed(0)) + 'k';
+  if (a >= 1e6) return String(+(n / 1e6).toFixed(2)).replace('.', ',') + 'm';
+  if (a >= 1e3) return String(+(n / 1e3).toFixed(2)).replace('.', ',') + 'k';
   return String(Math.round(n));
 }
 export function dollar(n, kasr) {

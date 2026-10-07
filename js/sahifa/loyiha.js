@@ -33,7 +33,7 @@ export async function chiz(view, ctx, param) {
   const h = d.holat;
   const stats = el('div', 'stats k5');
   stats.append(
-    kpi({ nom: 'Kassada', qiymat: p(h.kassa), izoh: kassaHisob?.boshlangich_sana ? 'hozir kassadagi pul' : 'kassa qoldig\'i kiritilmagan' }),
+    kpi({ nom: 'Kassada', qiymat: kassaHisob?.boshlangich_sana || h.kassa ? p(h.kassa) : '—', izoh: kassaHisob?.boshlangich_sana ? 'hozir kassadagi pul' : 'kassa qoldig\'i kiritilmagan' }),
     kpi({ nom: 'Sizga tegishli', qiymat: p(Math.max(0, h.menga)), izoh: el('span', null, `${l.sherik ?? 'Sherik'}ga: `, el('b', null, p(Math.max(0, h.sherikka)))) }),
     kpi({ nom: `${oyNomi(d.oylar[d.oylar.length - 1].oy, false)}: tushum`, qiymat: p(h.oy.tushum), spark: d.oylar.map((m) => m.tushum), izoh: `xarajat ${p(h.oy.xarajat)}` }),
     kpi({ nom: 'Mijoz qarzi', qiymat: p(h.mijozQarzi), ton: h.mijozQarzi > 0 ? 'red' : null, izoh: h.mijozQarzi > 0 ? 'muddati o\'tgan, tushmagan' : 'muddati o\'tganlar tushgan' }),
@@ -43,13 +43,19 @@ export async function chiz(view, ctx, param) {
 
   const g1 = torTo(view);
   {
-    const joy = el('div', 'chart');
-    const { tugma, jadvalJoy } = almashtirgich(joy, () => jadval([{ nom: 'Oy', f: (m) => oyNomi(m.oy) }, { nom: 'Tushum', num: true, f: (m) => p(m.tushum) },
-      { nom: 'Xarajat', num: true, f: (m) => p(m.xarajat) }, { nom: 'Sof', num: true, f: (m) => p(m.sof) }], [...d.oylar].reverse(), { cls: 'tbl-sm' }));
-    const c = karta('Tushum va xarajat — 6 oy', tugma);
-    c.append(el('div', 'cb', legenda([['Tushum', 'sw-s1'], ['Xarajat', 'sw-s2']]), joy, jadvalJoy));
-    ustunlar(joy, { nom: 'Tushum va xarajat', h: 220, fmt: p, qatorlar: d.oylar.map((m) => ({ yorliq: oyQisqa(m.oy), sarlavha: oyNomi(m.oy), tushum: m.tushum, xarajat: m.xarajat })),
-      seriyalar: [{ kalit: 'tushum', nom: 'Tushum', cls: 'c-s1' }, { kalit: 'xarajat', nom: 'Xarajat', cls: 'c-s2' }] });
+    let c;
+    if (!d.oylar.some((m) => m.tushum || m.xarajat)) {
+      c = karta('Tushum va xarajat — 6 oy');
+      c.append(el('div', 'cb', bosh('Hali tushum yo\'q', 'Fiks yoki bonus tushganda oyma-oy grafik shu yerda chiqadi.')));
+    } else {
+      const joy = el('div', 'chart');
+      const { tugma, jadvalJoy } = almashtirgich(joy, () => jadval([{ nom: 'Oy', f: (m) => oyNomi(m.oy) }, { nom: 'Tushum', num: true, f: (m) => p(m.tushum) },
+        { nom: 'Xarajat', num: true, f: (m) => p(m.xarajat) }, { nom: 'Sof', num: true, f: (m) => p(m.sof) }], [...d.oylar].reverse(), { cls: 'tbl-sm' }));
+      c = karta('Tushum va xarajat — 6 oy', tugma);
+      c.append(el('div', 'cb', legenda([['Tushum', 'sw-s1'], ['Xarajat', 'sw-s2']]), joy, jadvalJoy));
+      ustunlar(joy, { nom: 'Tushum va xarajat', h: 220, fmt: p, qatorlar: d.oylar.map((m) => ({ yorliq: oyQisqa(m.oy), sarlavha: oyNomi(m.oy), tushum: m.tushum, xarajat: m.xarajat })),
+        seriyalar: [{ kalit: 'tushum', nom: 'Tushum', cls: 'c-s1' }, { kalit: 'xarajat', nom: 'Xarajat', cls: 'c-s2' }] });
+    }
     const u = el('div', 'c8 ust'); u.append(c); g1.append(u);
   }
   {
@@ -89,9 +95,15 @@ export async function chiz(view, ctx, param) {
     view.append(c);
   }
 
-  // ─── Oylik natija ───
+  // ─── Oylik natija (faqat harakat bo'lgan oylar) ───
   view.append(el('div', 'sect', 'Oylik natija'));
   const c = karta(null);
+  const harakatli = d.oylar.filter((m) => m.fiks || m.bonus || m.xarajat || m.men || m.sherik);
+  if (!harakatli.length) {
+    c.append(bosh('Hali natija yo\'q', 'Fiks, bonus va xarajatlar yozilgach har oyning foydasi va ulushlar shu yerda chiqadi.'));
+    view.append(c);
+    return;
+  }
   c.append(jadval([
     { nom: 'Oy', f: (m) => el('b', null, oyNomi(m.oy)) },
     { nom: 'Fiks', num: true, f: (m) => p(m.fiks) },
@@ -101,6 +113,6 @@ export async function chiz(view, ctx, param) {
     { nom: 'Ulushim', num: true, f: (m) => p(m.ulushim) },
     { nom: 'Men oldim', num: true, f: (m) => el('span', 'muted', p(m.men)) },
     { nom: `${l.sherik ?? 'Sherik'} oldi`, num: true, f: (m) => el('span', 'muted', p(m.sherik)) },
-  ], [...d.oylar].reverse(), { futer: ['Jami', ...['fiks', 'bonus', 'xarajat', 'sof', 'ulushim', 'men', 'sherik'].map((x) => p(d.oylar.reduce((s, m) => s + m[x], 0)))] }));
+  ], [...harakatli].reverse(), { futer: ['Jami', ...['fiks', 'bonus', 'xarajat', 'sof', 'ulushim', 'men', 'sherik'].map((x) => p(d.oylar.reduce((s, m) => s + m[x], 0)))] }));
   view.append(c);
 }

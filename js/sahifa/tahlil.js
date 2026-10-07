@@ -30,8 +30,11 @@ export async function chiz(view, ctx) {
   const darajalar = toliq.map((m) => m.daraja).filter((x) => x != null);
   const stats = el('div', 'stats');
   stats.append(
-    kpi({ nom: 'O\'rtacha oylik daromad', qiymat: qisqa(ort((m) => m.daromad)), birlik: 'so\'m', spark: d.pulOqimi.map((m) => m.daromad), izoh: `${toliq.length} ta to'liq oy bo'yicha` }),
-    kpi({ nom: 'O\'rtacha oylik chiqim', qiymat: qisqa(ort((m) => m.chiqim)), birlik: 'so\'m', spark: d.pulOqimi.map((m) => m.chiqim), yon: -1, izoh: 'qarz to\'lovlarisiz' }),
+    // To'liq oy hali yo'q bo'lsa — o'rtacha noma'lum ("0" emas).
+    kpi({ nom: 'O\'rtacha oylik daromad', qiymat: toliq.length ? qisqa(ort((m) => m.daromad)) : '—', birlik: toliq.length ? 'so\'m' : null,
+      spark: d.pulOqimi.map((m) => m.daromad), izoh: toliq.length ? `${toliq.length} ta to'liq oy bo'yicha` : 'to\'liq oy hali yo\'q — joriy oy hisobga olinmaydi' }),
+    kpi({ nom: 'O\'rtacha oylik chiqim', qiymat: toliq.length ? qisqa(ort((m) => m.chiqim)) : '—', birlik: toliq.length ? 'so\'m' : null,
+      spark: d.pulOqimi.map((m) => m.chiqim), yon: -1, izoh: toliq.length ? 'qarz to\'lovlarisiz' : 'to\'liq oy hali yo\'q' }),
     kpi({ nom: 'Jamg\'arma darajasi', qiymat: darajalar.length ? foiz(Math.round(darajalar.reduce((s, x) => s + x, 0) / darajalar.length)) : '—',
       ton: darajalar.length && darajalar.reduce((s, x) => s + x, 0) / darajalar.length < 0 ? 'red' : null, spark: d.pulOqimi.map((m) => m.daraja),
       izoh: 'Daromaddan qancha qismi ortib qoladi (o\'rtacha)' }),

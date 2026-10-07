@@ -23,7 +23,8 @@ addEventListener('scroll', tipYashir, { passive: true });
 export function shkala(min, max, n = 4) {
   if (max === min) { max = max === 0 ? 1 : max * 1.1; min = Math.min(0, min); }
   const taxmin = (max - min) / n, mag = Math.pow(10, Math.floor(Math.log10(taxmin)));
-  const qadam = [1, 2, 2.5, 5, 10].map((x) => x * mag).find((s) => s >= taxmin);
+  // Qadam kamida 1: pul yaxlit ko'rsatiladi — 0,25 qadam "1, 1, 1, 0, 0" kabi takror yorliqlar berardi.
+  const qadam = Math.max(1, [1, 2, 2.5, 5, 10].map((x) => x * mag).find((s) => s >= taxmin));
   const lo = Math.floor(min / qadam) * qadam, hi = Math.ceil(max / qadam) * qadam;
   const ticks = [];
   for (let t = lo; t <= hi + qadam / 1e6; t += qadam) ticks.push(Math.round(t * 1e6) / 1e6);

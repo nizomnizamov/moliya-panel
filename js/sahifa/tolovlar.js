@@ -20,12 +20,14 @@ export async function chiz(view, ctx) {
   const faol = d.tolovlar.filter((t) => t.faol && t.holat !== 'tugagan');
   const som = (t) => (t.valyuta === 'UZS' ? t.summa : t.summa * kurs);
   const oylik = faol.filter((t) => t.kun).reduce((s, t) => s + som(t), 0);
+  const loyihadan = faol.filter((t) => t.kun && t.loyiha).reduce((s, t) => s + som(t), 0);
   const tolandi = faol.filter((t) => t.holat === 'tolandi');
   const qolgan = faol.filter((t) => ['kutilmoqda', 'bugun', 'otgan'].includes(t.holat));
   const otgan = faol.filter((t) => t.holat === 'otgan');
   const stats = el('div', 'stats');
   stats.append(
-    kpi({ nom: 'Oylik majburiyat', qiymat: qisqa(oylik), birlik: 'so\'m', izoh: `${faol.filter((t) => t.kun).length} ta har oylik to'lov (shaxsiy + loyiha)` }),
+    kpi({ nom: 'Oylik majburiyat', qiymat: qisqa(oylik), birlik: 'so\'m',
+      izoh: loyihadan ? `shaxsiy ${qisqa(oylik - loyihadan)} · loyiha kassasidan ${qisqa(loyihadan)}` : `${faol.filter((t) => t.kun).length} ta har oylik to'lov` }),
     kpi({ nom: 'Shu oy to\'landi', qiymat: String(tolandi.length), izoh: tolandi.map((t) => t.nomi).join(', ') || '—' }),
     kpi({ nom: 'Kutilmoqda', qiymat: qisqa(qolgan.reduce((s, t) => s + som(t), 0)), birlik: 'so\'m', izoh: `${qolgan.length} ta to'lov` }),
     kpi({ nom: 'Muddati o\'tgan', qiymat: String(otgan.length), ton: otgan.length ? 'red' : null, izoh: otgan.map((t) => t.nomi).join(', ') || 'yo\'q' }),
@@ -44,8 +46,7 @@ export async function chiz(view, ctx) {
     w.lastChild.title = 'Avval to\'langan / bu oy kerak emas — pul yozmasdan belgilash';
     return w;
   };
-  const c = karta('Doimiy to\'lovlar');
-  c.append(d.tolovlar.length ? jadval([
+  const ustunlar = [
     { nom: 'To\'lov', f: (t) => el('div', 'tavsif', el('span', 'bel', t.turi === 'qarz_qaytardim' ? '🤝' : t.loyiha ? '🕌' : '⏰'),
       el('div', null, el('b', null, t.nomi), el('small', null, [t.kategoriya, t.shaxs && `qarz: ${t.shaxs}`, t.loyiha].filter(Boolean).join(' · ') || ' '))) },
     { nom: 'Summa', num: true, f: (t) => el('b', null, pul(t.summa, t.valyuta)) },
@@ -55,8 +56,18 @@ export async function chiz(view, ctx) {
     { nom: 'Holat', f: (t) => pill(...HOLAT[t.holat]) },
     { nom: 'Qolgan', num: true, f: (t) => el('span', 'muted', t.qolgan != null ? `${t.qolgan} ta` : '∞') },
     { nom: '', f: amallar },
-  ], d.tolovlar, { bos: (t) => doimiyForma(ctx, t), qatorCls: (t) => (!t.faol ? 'bekor' : '') }) : bosh('To\'lov yo\'q', '«+ To\'lov» bilan qo\'shing.'));
+  ];
+  const yoqilgan = d.tolovlar.filter((t) => t.faol);
+  const ochirilgan = d.tolovlar.filter((t) => !t.faol);
+  const c = karta('Doimiy to\'lovlar');
+  c.append(yoqilgan.length ? jadval(ustunlar, yoqilgan, { bos: (t) => doimiyForma(ctx, t) }) : bosh('To\'lov yo\'q', '«+ To\'lov» bilan qo\'shing.'));
   view.append(c);
+  // O'chirilganlar — yig'ilgan holda (bosilsa ochiladi; tahrirlab qayta yoqish mumkin).
+  if (ochirilgan.length) {
+    const det = el('details', 'yigma', el('summary', null, `O'chirilgan to'lovlar (${ochirilgan.length})`));
+    det.append(jadval(ustunlar, ochirilgan, { bos: (t) => doimiyForma(ctx, t), qatorCls: () => 'bekor', cls: 'tbl-sm' }));
+    view.append(det);
+  }
 
   const tarix = d.tolovlar.flatMap((t) => t.tarix.map((x) => ({ ...x, nomi: t.nomi }))).sort((a, b) => b.sana.localeCompare(a.sana)).slice(0, 15);
   if (tarix.length) {

@@ -162,10 +162,13 @@ async function boshlash() {
   await chiz();
   // Qolgan sahifalar ma'lumoti fonda: keyingi bosishlar darhol ochiladi.
   const oy = bugun().slice(0, 7);
-  setTimeout(() => oldindan([
-    ['hisoblar'], ['byudjet', { oy }], ['tolovlar'], ['qarzlar'], ['tahlil', { oylar: 6 }],
-    ['loyiha', { id: ctx.katalog?.loyihalar?.[0]?.id }], ['maqsad'], ['kripto'], ['sozlamalar'],
-  ]), 800);
+  setTimeout(async () => {
+    const yozuvlar = await SAHIFALAR.yozuvlar().catch(() => null);   // so'rov parametrlari sahifaning o'zidan (kesh kaliti bir xil bo'lsin)
+    oldindan([
+      ['hisoblar'], ...(yozuvlar ? [['yozuvlar', yozuvlar.sorov()]] : []), ['byudjet', { oy }], ['tolovlar'], ['qarzlar'], ['tahlil', { oylar: 6 }],
+      ['loyiha', { id: ctx.katalog?.loyihalar?.[0]?.id }], ['maqsad'], ['kripto'], ['sozlamalar'],
+    ]);
+  }, 800);
 }
 
 // Global yorliq: "n" — yangi yozuv (forma maydonida emas).

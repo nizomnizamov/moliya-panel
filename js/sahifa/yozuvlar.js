@@ -18,7 +18,7 @@ function davrChegarasi() {
   return { dan: '', gacha: '' };
 }
 
-const sorov = (o = {}) => ({ ...davrChegarasi(), turi: f.turi, kategoriya: f.kategoriya, hisob: f.hisob, holat: f.holat, q: f.q, sahifa: f.sahifa, hajm: 50, ...o });
+export const sorov = (o = {}) => ({ ...davrChegarasi(), turi: f.turi, kategoriya: f.kategoriya, hisob: f.hisob, holat: f.holat, q: f.q, sahifa: f.sahifa, hajm: 50, ...o });
 
 export async function chiz(view, ctx, param) {
   if (param && /^hisob-\d+$/.test(param)) { f.hisob = param.slice(6); f.davr = '3oy'; f.sahifa = 1; history.replaceState(null, '', '#/yozuvlar'); }
