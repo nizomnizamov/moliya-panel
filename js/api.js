@@ -87,5 +87,10 @@ export async function yoz(yol, body) {
 export async function kirish(kod) {
   const j = await sorov('kirish', 'kirish', { kod });
   try { localStorage.setItem(KALIT, JSON.stringify({ token: j.sessiya, exp: Date.now() + j.muddat * 1000 - 60_000 })); } catch { /* */ }
+  // Kirish javobida katalog ham bor — birinchi sahifa uni qayta so'ramaydi.
+  if (j.katalog) {
+    kesh.set(kalit('katalog'), { vaqt: Date.now(), j: j.katalog });
+    try { localStorage.setItem(KATALOG, JSON.stringify(j.katalog)); } catch { /* */ }
+  }
   return j;
 }
