@@ -163,7 +163,9 @@ async function boshlash() {
   // Qolgan sahifalar ma'lumoti fonda: keyingi bosishlar darhol ochiladi.
   const oy = bugun().slice(0, 7);
   setTimeout(async () => {
-    const yozuvlar = await SAHIFALAR.yozuvlar().catch(() => null);   // so'rov parametrlari sahifaning o'zidan (kesh kaliti bir xil bo'lsin)
+    // Sahifa modullari ham fonda: aks holda har sahifa birinchi ochilganda o'z JS faylini kutardi (0,5–2 s).
+    const modullar = Object.fromEntries(await Promise.all(Object.entries(SAHIFALAR).map(async ([n, f]) => [n, await f().catch(() => null)])));
+    const yozuvlar = modullar.yozuvlar;   // so'rov parametrlari sahifaning o'zidan (kesh kaliti bir xil bo'lsin)
     oldindan([
       ['hisoblar'], ...(yozuvlar ? [['yozuvlar', yozuvlar.sorov()]] : []), ['byudjet', { oy }], ['tolovlar'], ['qarzlar'], ['tahlil', { oylar: 6 }],
       ['loyiha', { id: ctx.katalog?.loyihalar?.[0]?.id }], ['maqsad'], ['kripto'], ['sozlamalar'],
