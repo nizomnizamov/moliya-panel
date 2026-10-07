@@ -3,6 +3,7 @@
 const meta = document.querySelector('meta[name="api"]');
 export const API = (meta && meta.content) || 'https://rrinmhowgjxqftbwzpus.supabase.co/functions/v1/api';
 const KALIT = 'moliya-sessiya';
+export const KATALOG = 'moliya-katalog';   // oxirgi katalog — keyingi ochilishda darhol chizish uchun
 
 export class KirishKerak extends Error {}
 
@@ -15,7 +16,7 @@ export function sessiya() {
 }
 
 export function chiqish() {
-  try { localStorage.removeItem(KALIT); } catch { /* */ }
+  try { localStorage.removeItem(KALIT); localStorage.removeItem(KATALOG); } catch { /* */ }
 }
 
 // Funksiya bazaga yaqin mintaqada ishlasin (baza — Singapur). Aks holda har so'rov qit'alararo boradi: 5–8 s o'rniga ~1 s.

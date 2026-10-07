@@ -1,6 +1,6 @@
 // Dashboard karkasi: kirish, menyu, mavzu, sahifalar orasida yurish (#/manzil).
 
-import { chiqish, hodisa, kirish, KirishKerak, ol, oldindan, sessiya } from './api.js';
+import { chiqish, hodisa, KATALOG, kirish, KirishKerak, ol, oldindan, sessiya } from './api.js';
 import { bugun, guruh, sana } from './fmt.js';
 import { btn, el, ikon } from './ui.js';
 import { tipYashir } from './chart.js';
@@ -22,7 +22,11 @@ const SAHIFALAR = {
 /** Sahifalar umumiy holati: katalog (hisoblar, kategoriyalar, ...) va qayta chizish. */
 export const ctx = {
   katalog: null,
-  async katalogYangila() { ctx.katalog = await ol('katalog'); menyu(); kursYoz(); return ctx.katalog; },
+  async katalogYangila() {
+    ctx.katalog = await ol('katalog');
+    try { localStorage.setItem(KATALOG, JSON.stringify(ctx.katalog)); } catch { /* */ }
+    menyu(); kursYoz(); return ctx.katalog;
+  },
   yangila: () => chiz(),
   bor: (yol) => { location.hash = `#/${yol}`; },
 };
@@ -102,6 +106,16 @@ function kirishEkrani(xabar) {
   )));
 }
 
+/** Katalog oxirgi ochilishdan eslab qolingan bo'lsa — sahifa kutmasdan chiziladi, yangisi fonda keladi (o'zgarsa qayta chiziladi). */
+async function katalogTayyorla() {
+  let eski = null;
+  try { eski = JSON.parse(localStorage.getItem(KATALOG) || 'null'); } catch { /* */ }
+  if (!eski) return ctx.katalogYangila();
+  ctx.katalog = eski; menyu(); kursYoz();
+  const avval = JSON.stringify(eski);
+  ctx.katalogYangila().then((k) => { if (JSON.stringify(k) !== avval) hodisa.yangilandi?.(); }).catch(() => {});
+}
+
 let chizilmoqda = 0;
 async function chiz() {
   tipYashir();
@@ -112,7 +126,7 @@ async function chiz() {
   if (view.childNodes.length) view.classList.add('yuk');
   else view.replaceChildren(el('div', 'skel', 'Yuklanmoqda…'));
   try {
-    if (!ctx.katalog) await ctx.katalogYangila();
+    if (!ctx.katalog) await katalogTayyorla();
     const modul = await SAHIFALAR[nom]();
     const yangi = el('div');
     await modul.chiz(yangi, ctx, param);
