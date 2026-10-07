@@ -18,9 +18,12 @@ export function chiqish() {
   try { localStorage.removeItem(KALIT); } catch { /* */ }
 }
 
+// Funksiya bazaga yaqin mintaqada ishlasin (baza — Singapur). Aks holda har so'rov qit'alararo boradi: 5–8 s o'rniga ~1 s.
+const MINTAQA = 'forceFunctionRegion=ap-southeast-1';
+
 async function sorov(yol, opt = {}) {
   const token = sessiya();
-  const r = await fetch(`${API}/${yol}`, {
+  const r = await fetch(`${API}/${yol}${yol.includes('?') ? '&' : '?'}${API.includes('localhost') ? '' : MINTAQA}`, {
     ...opt,
     headers: { ...(opt.body ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
   }).catch(() => { throw new Error('Internet yoki server bilan aloqa yo\'q'); });
