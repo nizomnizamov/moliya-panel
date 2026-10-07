@@ -489,7 +489,7 @@ async function yukla() {
     if (window.__PANEL_DATA__) { D = window.__PANEL_DATA__; }
     else {
       const initData = tgApp && tgApp.initData;
-      if (!initData) { app.replaceChildren(el('div', 'markaz', "Panelni Telegram'dagi bot orqali oching: 📊 Holat → 📈 Panelni ochish.")); return; }
+      if (!initData) { app.replaceChildren(el('div', 'markaz', "Panelni Telegram'dagi botdan oching: chat pastidagi «Panel» tugmasi.")); return; }
       const r = await fetch(API, { method: 'POST', headers: { 'x-telegram-init-data': initData } });
       if (r.status === 401) { app.replaceChildren(el('div', 'markaz', "Ruxsat yo'q: panel faqat egasining Telegram'idan ochiladi.")); return; }
       if (!r.ok) throw new Error('Server javobi: ' + r.status);
