@@ -24,13 +24,19 @@ const MINTAQA = API.includes('localhost') ? '' : '?forceFunctionRegion=ap-southe
 /**
  * Hamma so'rov — "oddiy" POST (text/plain, sarlavhasiz): brauzer CORS oldindan so'rovini yubormaydi.
  * Token tanada ketadi (manzilda emas — loglarga tushmaydi).
+ * O'qish (amal 'ol') aloqa yoki server xatosida bir marta qayta urinadi; yozish — yo'q (ikki marta yozilmasin).
  */
-async function sorov(yol, amal, p) {
+async function sorov(yol, amal, p, qayta = amal === 'ol') {
   const r = await fetch(`${API}/${yol}${MINTAQA}`, {
     method: 'POST',
     headers: { 'content-type': 'text/plain;charset=UTF-8' },
     body: JSON.stringify({ t: sessiya(), amal, p }),
-  }).catch(() => { throw new Error('Internet yoki server bilan aloqa yo\'q'); });
+  }).catch(() => null);
+  if ((!r || r.status >= 500) && qayta) {
+    await new Promise((ok) => setTimeout(ok, 800));
+    return sorov(yol, amal, p, false);
+  }
+  if (!r) throw new Error('Internet yoki server bilan aloqa yo\'q');
   const j = await r.json().catch(() => ({}));
   if (r.status === 401 && yol !== 'kirish') { chiqish(); throw new KirishKerak(j.xato || 'Kirish kerak'); }
   if (!r.ok) throw new Error(j.xato || `Server javobi: ${r.status}`);
