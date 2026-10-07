@@ -168,7 +168,7 @@ async function boshlash() {
     const yozuvlar = modullar.yozuvlar;   // so'rov parametrlari sahifaning o'zidan (kesh kaliti bir xil bo'lsin)
     oldindan([
       ['hisoblar'], ...(yozuvlar ? [['yozuvlar', yozuvlar.sorov()]] : []), ['byudjet', { oy }], ['tolovlar'], ['qarzlar'], ['tahlil', { oylar: 6 }],
-      ['loyiha', { id: ctx.katalog?.loyihalar?.[0]?.id }], ['maqsad'], ['kripto'], ['sozlamalar'],
+      ['loyiha', { id: ctx.katalog?.loyihalar?.[0]?.id }], ['maqsad'], ['kripto'], ['sozlamalar'], ['bozor'],
     ]);
   }, 800);
 }

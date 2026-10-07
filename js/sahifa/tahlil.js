@@ -3,7 +3,7 @@
 import { ol, yoz } from '../api.js';
 import { almashtirgich, chiziq, legenda, ustunlar } from '../chart.js';
 import { foiz, guruh, oyNomi, oyQisqa, ozgarish, qisqa, sana } from '../fmt.js';
-import { bosh, btn, el, jadval, karta, kpi, sarlavha, seg, torTo, toast } from '../ui.js';
+import { bosh, btn, el, faktlar, jadval, karta, kpi, pill, sarlavha, seg, torTo, toast } from '../ui.js';
 
 let oylarSoni = 6;
 const BELGI = { qizil: '!', sariq: '!', info: 'i', yashil: '✓' };
@@ -157,4 +157,56 @@ export async function chiz(view, ctx) {
     ], d.engKatta, { cls: 'tbl-sm' }) : bosh('Xarajat yo\'q', ''));
     const u = el('div', 'c6 ust'); u.append(c); g4.append(u);
   }
+
+  // ─── Bozor va iqtisod: alohida so'rov — sekin bo'lsa ham sahifa kutmaydi ───
+  view.append(el('div', 'sect', 'Bozor va iqtisod'));
+  const bozorJoy = el('div', 'g');
+  bozorJoy.append(el('div', 'c12 skel', 'Yuklanmoqda…'));
+  view.append(bozorJoy);
+  ol('bozor').then((b) => bozorJoy.replaceChildren(...bozorKartalari(b)))
+    .catch((e) => bozorJoy.replaceChildren(el('div', 'c12', bosh('Bozor ma\'lumoti olinmadi', e.message))));
 }
+
+const ishorali = (x) => (x == null ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}${foiz(Math.abs(x), 1)}`);
+function havola(matn, url) {
+  if (!url || !/^https?:\/\//.test(url)) return el('span', null, matn);
+  const a = el('a', null, matn); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
+}
+
+/** Kunlik (CBU, Bitget) va haftalik (internet, manbali) bozor kartalari. */
+function bozorKartalari(b) {
+  const k = b.kunlik, h = b.haftalik;
+  const chap = karta('Bugungi bozor', el('span', 's', 'CBU va Bitget · har kuni'));
+  chap.append(k ? faktlar([
+    ['Dollar', `${guruh(k.dollar_som)} so'm`],
+    ['Dollar: 30 kunda / 1 yilda', `${ishorali(k.dollar_30_kunda_foiz)} / ${ishorali(k.dollar_1_yilda_foiz)}`],
+    k.rubl_som && ['Rubl (o\'tkazmalar)', `${guruh(k.rubl_som, 2)} so'm · 1 yilda ${ishorali(k.rubl_1_yilda_foiz)}`],
+    k.oltin_unsiya_usd && ['Oltin', `$${guruh(k.oltin_unsiya_usd)} / unsiya · 30 kunda ${ishorali(k.oltin_30_kunda_foiz)}`],
+    k.oltin_quyma && [`CBU quyma ${k.oltin_quyma.gramm} g: sotish / qaytarib olish`, `${qisqa(k.oltin_quyma.sotish_som)} / ${qisqa(k.oltin_quyma.qaytarib_olish_som)} so'm`],
+    k.oltin_quyma && ['Quyma spredi (darhol yo\'qotish)', `${foiz(k.oltin_quyma.spred_foiz, 1)}`, k.oltin_quyma.spred_foiz > 10 ? 'orange' : null],
+    k.btc_usd && ['BTC', `$${guruh(k.btc_usd)} · 30 kunda ${ishorali(k.btc_30_kunda_foiz)}`],
+    k.eth_usd && ['ETH', `$${guruh(k.eth_usd)} · 30 kunda ${ishorali(k.eth_30_kunda_foiz)}`],
+  ]) : bosh('Ma\'lumot yo\'q', 'Har soatda yangilanadi.'));
+  const ung = karta('Iqtisod: haftalik sharh', h ? (h.eskirgan ? pill(`${h.kun_oldin} kun oldin`, 'orange') : el('span', 's', `${sana(h.olindi)} · internet, manbalar bilan`)) : el('span', 's', 'har dushanba'));
+  if (!h) ung.append(bosh('Hali yo\'q', 'Har dushanba ertalab internetdan yangilanadi: asosiy stavka, inflyatsiya, uy narxi, yangiliklar.'));
+  else {
+    const kor = (nom, x, fmt) => (x?.qiymat == null ? null : [nom, havola(`${fmt(x.qiymat)}${x.davr ? ` · ${x.davr}` : x.sana ? ` · ${sana(x.sana)}` : ''}`, x.manba)]);
+    ung.append(faktlar([
+      kor('Asosiy stavka (CBU)', h.asosiy_stavka, (q) => `${q}%`),
+      kor('Inflyatsiya, yillik', h.inflyatsiya_yillik, (q) => `${q}%`),
+      kor('Inflyatsiya prognozi', h.inflyatsiya_prognoz, (q) => `${q}%`),
+      kor('Toshkent, 1 m²', h.toshkent_m2_usd, (q) => `$${guruh(q)}`),
+      kor('AQSh Fed stavkasi', h.fed_stavka, (q) => `${q}%`),
+    ]));
+    const izohlar = [['O\'tkazmalar', h.otkazmalar], ['Islomiy moliya', h.islomiy_moliya], ['Umra', h.umra]].filter(([, x]) => x?.izoh);
+    const yangi = h.yangiliklar ?? [];
+    if (izohlar.length || yangi.length) {
+      ung.append(el('div', 'cb', ...izohlar.map(([n, x]) => el('p', 'small', el('b', null, `${n}: `), havola(x.izoh, x.manba))),
+        ...yangi.map((y) => el('p', 'small', havola(y.sarlavha, y.manba), el('span', 'muted', ` — ${y.tasir}`)))));
+    }
+  }
+  const u1 = el('div', 'c6 ust'); u1.append(chap);
+  const u2 = el('div', 'c6 ust'); u2.append(ung);
+  return [u1, u2];
+}
+

@@ -29,7 +29,17 @@ export async function chiz(view, ctx) {
       c.append(jadval([{ nom: 'Vazifa', f: (x) => x.vazifa }, { nom: 'Model', f: (x) => el('span', 'muted small', x.model) },
         { nom: 'So\'rov', num: true, f: (x) => String(x.soni) }, { nom: 'Narx', num: true, f: (x) => `$${x.narx.toFixed(4)}` }], d.aiSarf, { cls: 'tbl-sm' }));
     }
-    const u = el('div', 'c6 ust'); u.append(c); g1.append(u);
+    const u = el('div', 'c6 ust'); u.append(c);
+    // Maslahatchi: halol tartibi va kripto chegarasi — AI maslahati va dashboard xulosalari shunga qarab.
+    const halol = tanlov([{ qiymat: 'faqat', nom: 'Faqat halol' }, { qiymat: 'belgi', nom: 'Ikkalasi — foizlisi belgi bilan' }, { qiymat: 'farqsiz', nom: 'Farqi yo\'q' }], d.afzalliklar.halol);
+    const krChegara = inp(d.afzalliklar.kripto_max_foiz, { type: 'number', min: 0, max: 50, step: 1 });
+    const msl = karta('Maslahatchi', el('span', 's', `bilim: ${sana(d.bilimVersiya)}`));
+    msl.append(el('div', 'cb',
+      el('p', 'muted small', 'Bilimi: moliyaviy boshqaruv, investitsiya, treyding intizomi, O\'zbekiston va mintaqa iqtisodiyoti. Raqamlarni kod hisoblaydi; bozor ma\'lumoti har kuni (CBU, Bitget) va har dushanba (internet) yangilanadi. Aniq coin/aksiya bo\'yicha "sotib ol/sot" demaydi.'),
+      el('div', 'form', maydon('Halol tartibi', halol), maydon('Kripto chegarasi — sof boylikdan, %', krChegara),
+        el('div', 'fld', el('span', null, ' '), btn('Saqlash', 'btn-sm', () => saqla('afzalliklar', { halol: halol.value, kripto_max_foiz: Number(krChegara.value) }, 'Maslahatchi sozlamalari saqlandi'))))));
+    u.append(msl);
+    g1.append(u);
   }
   {
     const u = el('div', 'c6 ust');
