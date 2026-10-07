@@ -29,7 +29,7 @@ export async function chiz(view, ctx) {
     kpi({ nom: 'Jami', qiymat: guruh(Math.round(h.jami)), birlik: 'USDT', spark: d.tarix.slice(-30).map((t) => t.jami), izoh: `≈ ${qisqa(h.jami * d.kurs)} so'm` }),
     kpi({ nom: 'Bugun', qiymat: h.kun ? `${h.kun.foiz >= 0 ? '+' : '−'}${foiz(Math.abs(h.kun.foiz), 1)}` : '—', ton: h.kun && -h.kun.foiz > q.kunlik_zarar_foiz ? 'red' : null,
       izoh: h.kun ? `${ishora(h.kun.usdt, (n) => dollar(n, 0))} · qoida: kuniga −${q.kunlik_zarar_foiz}% gacha` : 'kechagi surat yo\'q' }),
-    kpi({ nom: 'Oy boshidan', qiymat: h.oy ? `${h.oy.foiz >= 0 ? '+' : '−'}${foiz(Math.abs(h.oy.foiz), 1)}` : '—', izoh: h.oy ? `${ishora(h.oy.usdt, (n) => dollar(n, 0))} · kiritilgan pul hisobga olinmagan` : '' }),
+    kpi({ nom: 'Oy boshidan', qiymat: h.oy ? `${h.oy.foiz >= 0 ? '+' : '−'}${foiz(Math.abs(h.oy.foiz), 1)}` : '—', izoh: h.oy ? `${ishora(h.oy.usdt, (n) => dollar(n, 0))} · kiritilgan pul hisobga olinmagan` : 'kuzatuv yangi boshlandi' }),
     kpi({ nom: 'Memecoin ulushi', qiymat: foiz(h.memecoinFoiz, 1), ton: h.memecoinFoiz > q.memecoin_foiz ? 'red' : null,
       zolak: (h.memecoinFoiz / Math.max(q.memecoin_foiz, 0.01)) * 100, zolakCls: h.memecoinFoiz > q.memecoin_foiz ? 'red' : '', izoh: `qoida: ${q.memecoin_foiz}% gacha` }),
   );
@@ -70,8 +70,10 @@ export async function chiz(view, ctx) {
 
   // ─── Portfel ───
   const c = karta('Spot portfel', el('span', 's', 'o\'rtacha narx savdolardan hisoblanadi; bo\'lmasa — qo\'lda kiriting'));
-  const aktivlar = d.aktivlar.filter((a) => a.miqdor > 0);
   const qiymat = (a) => a.miqdor * (a.guruh === 'stable' ? 1 : a.narx ?? 0);
+  // $1 dan kam qoldiqlar (sotilgandan keyingi "chang") asosiy jadvalni to'ldirmasin — pastda yig'ilgan.
+  const aktivlar = d.aktivlar.filter((a) => a.miqdor > 0 && qiymat(a) >= 1);
+  const mayda = d.aktivlar.filter((a) => a.miqdor > 0 && qiymat(a) < 1);
   c.append(aktivlar.length ? jadval([
     { nom: 'Coin', f: (a) => el('b', null, a.coin) },
     { nom: 'Miqdor', num: true, f: (a) => aniq(a.miqdor) },
@@ -96,6 +98,13 @@ export async function chiz(view, ctx) {
     } },
   ], aktivlar.sort((a, b) => qiymat(b) - qiymat(a))) : bosh('Aktiv yo\'q', ''));
   view.append(c);
+  if (mayda.length) {
+    const det = el('details', 'yigma', el('summary', null, `Mayda qoldiqlar (${mayda.length}) · jami ${dollar(mayda.reduce((s, a) => s + qiymat(a), 0), 2)}`));
+    det.append(jadval([{ nom: 'Coin', f: (a) => el('b', null, a.coin) }, { nom: 'Miqdor', num: true, f: (a) => aniq(a.miqdor) },
+      { nom: 'Narx', num: true, f: (a) => (a.narx ? aniq(a.narx) : '—') }, { nom: 'Qiymat', num: true, f: (a) => dollar(qiymat(a), 2) }],
+    mayda.sort((a, b) => qiymat(b) - qiymat(a)), { cls: 'tbl-sm' }));
+    view.append(det);
+  }
 
   // ─── Savdo jurnali ───
   view.append(el('div', 'sect', 'Savdo jurnali'));
