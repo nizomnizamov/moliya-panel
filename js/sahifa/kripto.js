@@ -11,7 +11,14 @@ const aniq = (n) => (Math.abs(n) >= 100 ? guruh(n, 2) : Number(n).toLocaleString
 
 export async function chiz(view, ctx) {
   const d = await ol('kripto');
-  sarlavha(view, { eyebrow: 'Kapital', title: 'Kripto', sub: d.oxirgiSinxron ? `Bitget · faqat o'qish · oxirgi sinxron ${sana(d.oxirgiSinxron.slice(0, 10))} ${d.oxirgiSinxron.slice(11, 16)}` : 'Bitget · faqat o\'qish' });
+  const tools = sarlavha(view, { eyebrow: 'Kapital', title: 'Kripto', sub: d.oxirgiSinxron ? `Bitget · faqat o'qish · oxirgi sinxron ${sana(d.oxirgiSinxron.slice(0, 10))} ${d.oxirgiSinxron.slice(11, 16)}` : 'Bitget · faqat o\'qish' });
+  if (d.kalit) {
+    const b = btn('Hozir sinxronlash', 'btn-sm', async () => {
+      b.disabled = true;
+      try { await yoz('kripto/sinxron', {}); toast('Bitget yangilandi'); ctx.yangila(); } catch (e) { toast(e.message, false); b.disabled = false; }
+    });
+    tools.append(el('span', 'sp'), b);
+  }
   const h = d.holat;
   if (!h) {
     const c = karta('Bitget hali ulanmagan');

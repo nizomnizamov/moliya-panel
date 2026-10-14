@@ -3,13 +3,22 @@
 import { ol, yoz } from '../api.js';
 import { almashtirgich, legenda, ustunlar } from '../chart.js';
 import { oyNomi, oyQisqa, pul, sana } from '../fmt.js';
-import { rejaForma, shartlarForma, sotuvForma, tolaForma, yozuvForma } from '../formalar.js';
-import { bosh, btn, el, faktlar, jadval, karta, kpi, pill, sarlavha, torTo, toast, xavfliBtn } from '../ui.js';
+import { loyihaMalumotForma, loyihaYangiForma, rejaForma, shartlarForma, sotuvForma, tolaForma, yozuvForma } from '../formalar.js';
+import { bosh, btn, el, faktlar, jadval, joyidaSumma, karta, kpi, pill, sarlavha, torTo, toast, xavfliBtn } from '../ui.js';
 
 export async function chiz(view, ctx, param) {
   const k = ctx.katalog;
-  const id = param ?? k.loyihalar[0]?.id;
+  const id = param ?? k.loyihalar.find((x) => x.faol)?.id ?? k.loyihalar[0]?.id;
+  if (!id) {
+    const t = sarlavha(view, { eyebrow: 'Loyiha', title: 'Loyihalar', sub: 'Har loyihaning alohida kassasi, kutilayotgan to\'lovlari va sherik bilan hisobi.' });
+    t.append(el('span', 'sp'), btn('+ Yangi loyiha', 'btn-pri', () => loyihaYangiForma(ctx)));
+    const c = karta(null);
+    c.append(bosh('Loyiha yo\'q', '«+ Yangi loyiha» bilan qo\'shing.'));
+    view.append(c);
+    return;
+  }
   const d = await ol('loyiha', { id });
+  const kl = k.loyihalar.find((x) => x.id === d.loyiha.id) ?? d.loyiha;
   const l = d.loyiha, v = d.valyuta, sh = l.shartlar ?? {};
   const p = (n) => pul(n, v);
   const fiksMatn = (sh.fiks ?? []).map((f) => `${f.kun}`).join(' va ');
@@ -28,7 +37,10 @@ export async function chiz(view, ctx, param) {
     btn('Sherik ulushi', null, () => yozuvForma(ctx, { preset: { turi: 'chiqim', hisob_id: d.kassaId, kategoriya_id: kat('Sherik ulushi'), izoh: l.sherik, summa: Math.max(0, Math.floor(d.holat.sherikka)) || '' } })),
     btn('Sotuvlar soni', null, () => sotuvForma(ctx, l)),
     el('span', 'sp'),
-    btn('Shartlar', 'btn-ghost', () => shartlarForma(ctx, l)));
+    btn('Shartlar', 'btn-ghost', () => shartlarForma(ctx, l)),
+    btn('Ma\'lumot', 'btn-ghost', () => loyihaMalumotForma(ctx, kl)),
+    btn('+ Loyiha', 'btn-ghost', () => loyihaYangiForma(ctx)));
+  if (kl.faol === false) view.append(el('p', 'note orange', 'Bu loyiha arxivda: menyuda ko\'rinmaydi, kassasi hisobotlarga kirmaydi. Qaytarish — «Ma\'lumot» → «Faol».'));
 
   const h = d.holat;
   const stats = el('div', 'stats k5');
@@ -88,7 +100,9 @@ export async function chiz(view, ctx, param) {
       { nom: 'To\'lov', f: (r) => el('b', null, r.nomi) },
       { nom: 'Turi', f: (r) => el('span', 'muted', r.turi === 'fiks' ? 'Fiks' : 'Bonus') },
       { nom: 'Muddat', f: (r) => sana(r.muddat) },
-      { nom: 'Summa', num: true, f: (r) => p(r.summa) },
+      { nom: 'Summa', num: true, f: (r) => (r.id && r.holat !== 'tushdi'
+        ? joyidaSumma(p(r.summa), r.summa, async (v) => { await yoz('summa', { jadval: 'tushum_rejasi', id: r.id, qiymat: v }); toast(`${r.nomi}: ${p(v)}`); ctx.yangila(); })
+        : p(r.summa)) },
       { nom: 'Holat', f: holat },
       { nom: '', f: (r) => r.holat === 'tushdi' || !r.id ? el('span') : xavfliBtn('O\'chirish', async () => { await yoz('reja/ochir', { id: r.id }); toast('Reja o\'chirildi'); ctx.yangila(); }, 'btn-sm btn-ghost') },
     ], [...d.rejalar].reverse(), { bos: (r) => r.id && rejaForma(ctx, l, r) }) : bosh('Reja yo\'q', 'Fiks rejalari har oy shartlardan o\'zi yaratiladi.'));

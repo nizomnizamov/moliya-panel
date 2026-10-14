@@ -3,10 +3,10 @@
 import { ol, yoz } from '../api.js';
 import { pul, qisqa, sana } from '../fmt.js';
 import { doimiyForma, tolaForma } from '../formalar.js';
-import { bosh, btn, el, jadval, karta, kpi, pill, sarlavha, toast } from '../ui.js';
+import { bosh, btn, el, jadval, joyidaSumma, karta, kpi, pill, sarlavha, toast } from '../ui.js';
 
 const HOLAT = {
-  tolandi: ['to\'landi', 'green'], otgan: ['muddati o\'tdi', 'red'], bugun: ['bugun', 'orange'], kutilmoqda: ['kutilmoqda', ''],
+  tolandi: ['to\'landi', 'green'], otkazildi: ['o\'tkazildi (pulsiz)', 'blue'], otgan: ['muddati o\'tdi', 'red'], bugun: ['bugun', 'orange'], kutilmoqda: ['kutilmoqda', ''],
   sanasiz: ['sanasi yo\'q', ''], tugagan: ['tugagan', ''], nofaol: ['o\'chirilgan', ''],
 };
 
@@ -35,6 +35,14 @@ export async function chiz(view, ctx) {
   view.append(stats);
 
   const amallar = (t) => {
+    if (t.holat === 'otkazildi') {
+      const u = btn('↩︎', 'btn-sm btn-ghost', async (e) => {
+        e.stopPropagation();
+        try { await yoz('doimiy/otkaz-bekor', { id: t.id, davr: t.davr }); toast(`${t.nomi}: yana kutilmoqda`); ctx.yangila(); } catch (err) { toast(err.message, false); }
+      });
+      u.title = '«⏭ Bu oy kerak emas» belgisini bekor qilish';
+      return el('div', 'row amal', u);
+    }
     if (!['kutilmoqda', 'bugun', 'otgan'].includes(t.holat)) return el('span');
     const w = el('div', 'row amal');
     w.append(btn('To\'landi', 'btn-sm', (e) => { e.stopPropagation(); tolaForma(ctx, t); }),
@@ -49,7 +57,9 @@ export async function chiz(view, ctx) {
   const ustunlar = [
     { nom: 'To\'lov', f: (t) => el('div', 'tavsif', el('span', 'bel', t.turi === 'qarz_qaytardim' ? '🤝' : t.loyiha ? '🕌' : '⏰'),
       el('div', null, el('b', null, t.nomi), el('small', null, [t.kategoriya, t.shaxs && `qarz: ${t.shaxs}`, t.loyiha].filter(Boolean).join(' · ') || ' '))) },
-    { nom: 'Summa', num: true, f: (t) => el('b', null, pul(t.summa, t.valyuta)) },
+    { nom: 'Summa', num: true, f: (t) => joyidaSumma(el('b', null, pul(t.summa, t.valyuta)), t.summa, async (v) => {
+      await yoz('summa', { jadval: 'doimiy_tolovlar', id: t.id, qiymat: v }); toast(`${t.nomi}: ${pul(v, t.valyuta)}`); ctx.yangila();
+    }) },
     { nom: 'Jadval', f: (t) => el('span', 'muted', t.kun ? `har oy ${t.kun}-sanada` : t.sana ? `bir marta, ${sana(t.sana)}` : '—') },
     { nom: 'Hisob', f: (t) => el('span', 'muted', t.hisob ?? 'har safar tanlanadi') },
     { nom: 'Keyingi muddat', f: (t) => el('span', t.holat === 'otgan' ? 'red' : null, t.muddat ? `${sana(t.muddat)}${t.farq != null && t.farq >= 0 && t.holat !== 'tolandi' ? ` · ${t.farq === 0 ? 'bugun' : `${t.farq} kunda`}` : ''}` : '—') },

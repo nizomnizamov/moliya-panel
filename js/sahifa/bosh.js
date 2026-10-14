@@ -65,6 +65,11 @@ export async function chiz(view, ctx) {
       : kpi({ nom: 'Maqsad', qiymat: '—', izoh: 'Maqsad qo\'shing', bos: () => ctx.bor('maqsad') }),
   );
   view.append(stats);
+  // Ovoz/skrinshotdan kelgan, hali tasdiqlanmagan yozuvlar — hisobotlarga kirmaydi.
+  if (d.tasdiqlanmagan > 0) {
+    view.append(el('div', 'note orange row', el('span', null, `🎙 ${d.tasdiqlanmagan} ta yozuv tasdiqlanmagan (ovoz yoki skrinshotdan) — tasdiqlanmaguncha hisobotlarga kirmaydi.`),
+      el('span', 'sp'), btn('Ko\'rish', 'btn-sm', () => ctx.bor('yozuvlar/kutilmoqda'))));
+  }
 
   // ─── Pul oqimi + xulosalar ───
   const g1 = torTo(view);

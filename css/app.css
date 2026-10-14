@@ -123,6 +123,7 @@ h1.title{font-size:30px;line-height:1.1;font-weight:700;letter-spacing:-.024em}
 .sub{color:var(--ink-2);font-size:14.5px;margin:5px 0 0;max-width:80ch}
 .tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0 16px}
 .tools .sp{flex:1}
+.tools select{width:auto;min-width:170px;font-size:13.5px;padding:6px 10px}
 .sect{font-size:11.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:26px 0 10px;padding:0 2px}
 /* Yig'iladigan bo'lim (o'chirilganlar va h.k.) — sarlavhasi .sect kabi */
 details.yigma{margin:26px 0 0}
@@ -404,3 +405,17 @@ tfoot td{font-weight:650;border-top:.5px solid var(--sep);border-bottom:0}
 .row.amal{flex-wrap:nowrap;gap:6px}
 .sana-vaqt{display:grid;grid-template-columns:minmax(0,1fr) 108px;gap:8px}
 @media(max-width:520px){.kpi .v{white-space:normal;line-height:1.1}}
+
+/* ── Joyida tahrirlanadigan summa ── */
+.joyida{cursor:text;border-bottom:1px dashed var(--ink-3);border-radius:3px;padding:0 2px;transition:background .12s}
+.joyida:hover,.joyida:focus-visible{background:var(--blue-bg)}
+.joyida input{width:130px;text-align:right}
+/* ── Summa tarixi (tahrirlash oynasida va Tarix sahifasida) ── */
+.tq{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;padding:8px 0;border-top:1px solid var(--sep-soft);font-size:13px;align-items:baseline}
+.tq .o{font-weight:600}
+.tq .s{grid-column:2/4;color:var(--ink-2);font-size:12px}
+/* ── Ommaviy amallar paneli ── */
+.ommaviy{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;margin:0 0 10px;border-radius:12px;background:var(--blue-bg)}
+.ommaviy b{margin-right:6px}
+td.tanla,th.tanla{width:28px}
+.ochirish{margin-top:14px;padding-top:12px;border-top:1px solid var(--sep-soft)}

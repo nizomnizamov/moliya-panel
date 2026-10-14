@@ -2,6 +2,7 @@
 
 import { chiqish, ol, yoz } from '../api.js';
 import { guruh, sana } from '../fmt.js';
+import { loyihaMalumotForma, loyihaYangiForma } from '../formalar.js';
 import { btn, el, faktlar, inp, jadval, karta, maydon, pill, sarlavha, tanlov, toast, torTo, xavfliBtn } from '../ui.js';
 
 export async function chiz(view, ctx) {
@@ -62,5 +63,57 @@ export async function chiz(view, ctx) {
         xavfliBtn('Barcha qurilmalardan chiqish', async () => { await yoz('chiqish-hammasi', {}); chiqish(); location.reload(); }, 'btn-sm btn-bad'))));
     u.append(c3);
     g1.append(u);
+  }
+
+  // ─── Xabarlar, loyihalar, ma'lumotlar ───
+  const g2 = torTo(view);
+  {
+    const x = d.xabarlar;
+    const quti = (v) => { const q = inp(null, { type: 'checkbox' }); q.checked = v; return q; };
+    const kechki = quti(x.kechki), haftalik = quti(x.haftalik), jurnal = quti(x.jurnal), bozor = quti(x.bozor);
+    const soat = tanlov(Array.from({ length: 24 }, (_, h) => ({ qiymat: h, nom: `${String(h).padStart(2, '0')}:00` })), x.kechki_soat);
+    const c = karta('Xabarlar', el('span', 's', 'Telegram bot'));
+    c.append(el('div', 'cb', el('div', 'form',
+      el('label', 'row full', kechki, 'Kechki xabar (kun xulosasi, yaqin to\'lovlar tugmalari bilan)'),
+      maydon('Kechki xabar vaqti (Toshkent)', soat),
+      el('label', 'row full', haftalik, 'Yakshanba — haftalik tahlil (AI, ~$0.01)'),
+      el('label', 'row full', jurnal, 'Yangi kripto savdodan keyin sababini so\'rash'),
+      el('label', 'row full', bozor, 'Dushanba — bozor sharhi internetdan (AI, ~$0.02)'),
+      el('div', 'fld', el('span', null, ' '), btn('Saqlash', 'btn-sm', () => saqla('xabarlar', {
+        kechki: kechki.checked, kechki_soat: Number(soat.value), haftalik: haftalik.checked, jurnal: jurnal.checked, bozor: bozor.checked,
+      }, 'Xabar sozlamalari saqlandi'))))));
+    const u = el('div', 'c6 ust'); u.append(c); g2.append(u);
+  }
+  {
+    const u = el('div', 'c6 ust');
+    const c = karta('Loyihalar', btn('+ Yangi loyiha', 'btn-sm btn-ghost', () => loyihaYangiForma(ctx)));
+    c.append(k.loyihalar.length ? jadval([
+      { nom: 'Loyiha', f: (l) => el('b', null, l.nomi) },
+      { nom: 'Holat', f: (l) => pill(l.faol ? 'faol' : 'arxivda', l.faol ? 'green' : '') },
+      { nom: '', f: (l) => btn('Ochish', 'btn-sm btn-ghost', (e) => { e.stopPropagation(); ctx.bor(`loyiha/${l.id}`); }) },
+    ], k.loyihalar, { bos: (l) => loyihaMalumotForma(ctx, l), cls: 'tbl-sm' }) : el('div', 'cb', el('p', 'muted small', 'Loyiha yo\'q.')));
+    u.append(c);
+    const m = karta('Ma\'lumotlar');
+    const sinx = btn('Bitgetni hozir sinxronlash', 'btn-sm', async () => {
+      sinx.disabled = true;
+      try { const r = await yoz('kripto/sinxron', {}); toast(`Bitget yangilandi${r.olindi ? `: ${r.olindi.slice(11)}` : ''}`); } catch (e) { toast(e.message, false); } finally { sinx.disabled = false; }
+    });
+    const bozorB = xavfliBtn('Bozor sharhini hozir yangilash (~$0.02)', async () => {
+      try { await yoz('bozor/yangila', {}); toast('Bozor sharhi yangilandi — Tahlil sahifasida'); } catch (e) { toast(e.message, false); }
+    }, 'btn-sm');
+    const zaxira = btn('To\'liq zaxira (JSON) yuklab olish', 'btn-sm', async () => {
+      try {
+        const z = await ol('eksport');
+        const a = el('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(z, null, 1)], { type: 'application/json' }));
+        a.download = `moliya-zaxira-${z.olindi.slice(0, 10)}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      } catch (e) { toast(e.message, false); }
+    });
+    m.append(el('div', 'cb', el('p', 'muted small', 'Zaxirada hamma narsa bor: yozuvlar, hisoblar, to\'lovlar, loyihalar, kripto, summa tarixi va sozlamalar (kalitlarsiz).'),
+      el('div', 'row', sinx, bozorB), el('div', 'row', zaxira, btn('O\'zgarishlar tarixi', 'btn-sm btn-ghost', () => ctx.bor('tarix')))));
+    u.append(m);
+    g2.append(u);
   }
 }

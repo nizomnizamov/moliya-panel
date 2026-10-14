@@ -1,9 +1,9 @@
 // Yozuvlar: barcha kirim-chiqimlar — filtr, qidiruv, tahrirlash, CSV.
 
-import { ol } from '../api.js';
+import { ol, yoz } from '../api.js';
 import { bugun, guruh, oyQosh, qisqa } from '../fmt.js';
 import { yozuvForma } from '../formalar.js';
-import { bosh, btn, el, inp, jadval, karta, sarlavha, seg, tanlov } from '../ui.js';
+import { bosh, btn, el, inp, jadval, joyidaSumma, karta, sarlavha, seg, tanlov, toast, xavfliBtn } from '../ui.js';
 import { MANBA, sanaKatak, summaKatak, yozuvTavsif } from '../umumiy.js';
 
 // Filtrlar sahifalar orasida yurganda saqlanadi.
@@ -22,6 +22,7 @@ export const sorov = (o = {}) => ({ ...davrChegarasi(), turi: f.turi, kategoriya
 
 export async function chiz(view, ctx, param) {
   if (param && /^hisob-\d+$/.test(param)) { f.hisob = param.slice(6); f.davr = '3oy'; f.sahifa = 1; history.replaceState(null, '', '#/yozuvlar'); }
+  if (param === 'kutilmoqda') { Object.assign(f, { holat: 'kutilmoqda', davr: 'hammasi', sahifa: 1 }); history.replaceState(null, '', '#/yozuvlar'); }
   const k = ctx.katalog;
   const d = await ol('yozuvlar', sorov());
 
@@ -74,12 +75,54 @@ export async function chiz(view, ctx, param) {
     el('span', 's', `chiqim ${qisqa(d.jami.chiqim)} so'm · kirim ${qisqa(d.jami.kirim)} so'm`));
   if (!d.qatorlar.length) c.append(bosh('Hech narsa topilmadi', 'Filtrlarni o\'zgartirib ko\'ring.'));
   else {
+    // ─── Belgilash va ommaviy amallar ───
+    const tanlangan = new Set();
+    const qutilar = [];
+    const panel = el('div', 'ommaviy');
+    panel.hidden = true;
+    const sonEl = el('b');
+    const katTanlov = tanlov(k.kategoriyalar.filter((x) => ['chiqim', 'kirim'].includes(x.turi)).map((x) => ({ qiymat: x.id, nom: `${x.belgi} ${x.nomi}` })), '', 'Kategoriya…');
+    katTanlov.setAttribute('aria-label', 'Tanlanganlar uchun kategoriya');
+    const ommaviy = async (body, matn) => {
+      try {
+        const r = await yoz('yozuvlar/ommaviy', { idlar: [...tanlangan], ...body });
+        toast(r.otkazildi ? `${matn}: ${r.soni} ta (${r.otkazildi} tasi boshqa turdagi — o'zgarmadi)` : `${matn}: ${r.soni} ta`);
+        ctx.yangila();
+      } catch (e) { toast(e.message, false); }
+    };
+    panel.append(sonEl, katTanlov,
+      btn('Kategoriyani qo\'yish', 'btn-sm', () => { if (!katTanlov.value) return toast('Kategoriyani tanlang', false); ommaviy({ amal: 'kategoriya', kategoriya_id: katTanlov.value }, 'Kategoriya o\'zgardi'); }),
+      btn('Tasdiqlash', 'btn-sm', () => ommaviy({ amal: 'tasdiq' }, 'Tasdiqlandi')),
+      xavfliBtn('Bekor qilish', () => ommaviy({ amal: 'bekor' }, 'Bekor qilindi'), 'btn-sm btn-bad'),
+      el('span', 'sp'),
+      btn('Tanlovni tozalash', 'btn-sm btn-ghost', () => { tanlangan.clear(); qutilar.forEach((q) => { q.checked = false; }); hammasi.checked = false; yangilaPanel(); }));
+    const yangilaPanel = () => { panel.hidden = !tanlangan.size; sonEl.textContent = `${tanlangan.size} ta tanlandi`; };
+    const quti = (y) => {
+      const q = el('input');
+      q.type = 'checkbox';
+      q.setAttribute('aria-label', 'Tanlash');
+      q.addEventListener('click', (e) => e.stopPropagation());
+      q.addEventListener('keydown', (e) => e.stopPropagation());
+      q.addEventListener('change', () => { if (q.checked) tanlangan.add(y.id); else tanlangan.delete(y.id); yangilaPanel(); });
+      qutilar.push(q);
+      return q;
+    };
+    const hammasi = el('input');
+    hammasi.type = 'checkbox';
+    hammasi.setAttribute('aria-label', 'Sahifadagi hammasini tanlash');
+    hammasi.addEventListener('change', () => {
+      d.qatorlar.forEach((y, i) => { qutilar[i].checked = hammasi.checked; if (hammasi.checked) tanlangan.add(y.id); else tanlangan.delete(y.id); });
+      yangilaPanel();
+    });
+    c.append(panel);
     c.append(jadval([
+      { nom: hammasi, f: quti },
       { nom: 'Sana', f: sanaKatak },
       { nom: 'Nima', f: yozuvTavsif },
       { nom: 'Hisob', f: (y) => el('span', 'muted', y.turi === 'otkazma' ? `${y.hisob} → ${y.ga_hisob}` : y.hisob ?? '—') },
       { nom: 'Manba', f: (y) => el('span', 'faint small', MANBA[y.manba] ?? y.manba) },
-      { nom: 'Summa', num: true, f: summaKatak },
+      { nom: 'Summa', num: true, f: (y) => (y.holat === 'bekor' ? summaKatak(y)
+        : joyidaSumma(summaKatak(y), y.summa, async (v) => { await yoz('summa', { jadval: 'yozuvlar', id: y.id, qiymat: v }); toast('Summa o\'zgardi — tarixga yozildi'); ctx.yangila(); })) },
     ], d.qatorlar, { bos: (y) => yozuvForma(ctx, { yozuv: y }), qatorCls: (y) => (y.holat === 'bekor' ? 'bekor' : '') }));
   }
   if (d.sahifalar > 1) {

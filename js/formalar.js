@@ -2,6 +2,7 @@
 
 import { yoz } from './api.js';
 import { bugun, pul, sana } from './fmt.js';
+import { summaTarixi } from './tarix.js';
 import { drawer, el, inp, maydon, seg, summaInp, tanlov, toast, xavfliBtn } from './ui.js';
 
 const TUR_NOMI = { karta: 'Kartalar', naqd: 'Naqd', birja: 'Birja', jamgarma: 'Jamg\'arma', loyiha: 'Loyiha kassalari' };
@@ -13,6 +14,21 @@ function hisobVariantlari(k, filtr = () => true) {
     (guruhlar[h.turi] ??= []).push({ qiymat: h.id, nom: `${h.nomi} · ${h.valyuta === 'UZS' ? 'so\'m' : h.valyuta}` });
   }
   return Object.entries(guruhlar).map(([t, v]) => ({ guruh: TUR_NOMI[t] ?? t, variantlar: v }));
+}
+
+/** Tahrirlashda: summa o'zgarsa — sababi (ixtiyoriy), summa tarixiga yoziladi. */
+function sababMaydon() {
+  const i = inp('', { maxlength: 200, placeholder: 'Masalan: chek qayta tekshirildi' });
+  return { i, f: maydon('Summa o\'zgarsa — sababi (ixtiyoriy)', i, 'O\'zgarishlar tarixiga yoziladi', true) };
+}
+
+/** O'chirish bo'limi: (ixtiyoriy) ko'chirish tanlovi va ikki bosqichli tugma. Xato — toast. */
+function ochirishBolimi({ izoh, tanlovVariant, tanlovNom, matn = 'O\'chirish', amal }) {
+  const sel = tanlovVariant ? tanlov(tanlovVariant, '', 'Ko\'chirmaslik') : null;
+  const b = xavfliBtn(matn, async () => {
+    try { await amal(sel?.value || null); } catch (e) { toast(e.message, false); }
+  }, 'btn-sm btn-bad');
+  return el('div', 'full ochirish', el('p', 'muted small', izoh), sel ? maydon(tanlovNom, sel, null, true) : null, b);
 }
 
 const saqlandi = async (ctx, matn, katalog = false) => {
@@ -97,8 +113,9 @@ export function yozuvForma(ctx, { yozuv = null, preset = {} } = {}) {
   shaxs.addEventListener('change', yangilaKorinish);
 
   const turSeg = seg([['chiqim', 'Chiqim'], ['kirim', 'Kirim'], ['otkazma', 'O\'tkazma'], ['qarz', 'Qarz']], turi, (v) => { turi = v; yangilaKorinish(); });
+  const sab = yozuv?.id ? sababMaydon() : null;
   const tana = el('div', 'form', maydon('Turi', turSeg, null, true), f.qarzTuri, f.summa, f.sana, f.hisob, f.hisobQarz, f.ga, f.gaSumma,
-    f.kat, f.shaxs, f.yangiShaxs, f.izoh);
+    f.kat, f.shaxs, f.yangiShaxs, f.izoh, sab?.f ?? null, yozuv?.id ? summaTarixi('yozuvlar', yozuv.id) : null);
   yangilaKorinish();
 
   const qoshimcha = [];
@@ -121,7 +138,7 @@ export function yozuvForma(ctx, { yozuv = null, preset = {} } = {}) {
         id: yozuv?.id, turi: turi === 'qarz' ? qarzTuri : turi, summa: qiymat,
         sana: vaqtI.value ? `${sanaI.value}T${vaqtI.value}` : sanaI.value,
         hisob_id: turi === 'qarz' ? (hisobQarz.value || null) : hisob.value,
-        izoh: izoh.value,
+        izoh: izoh.value, sabab: sab?.i.value || null,
       };
       if (turi === 'qarz' && !hisobQarz.value) body.valyuta = 'UZS';
       if (turi === 'otkazma') { body.ga_hisob_id = ga.value; if (!f.gaSumma.hidden) body.ga_summa = gaSumma.son(); }
@@ -162,13 +179,29 @@ export function hisobForma(ctx, h = null) {
   const kal = inp((h?.kalitlar ?? []).join(', '), { placeholder: 'kapital, uzcard' });
   const faol = inp(null, { type: 'checkbox' }); faol.checked = h?.faol ?? true;
   if (h) turi.disabled = true;
-  drawer({
+  // Boshlang'ich qoldiq: qoldiq = boshlang'ich + shu sanadan keyingi yozuvlar (birja — Bitget suratidan, kerak emas).
+  const boshlanadi = h && h.turi !== 'birja';
+  const bosh = summaInp(h?.boshlangich_sana ? h.boshlangich ?? 0 : '', { placeholder: 'kiritilmagan' });
+  const boshSana = inp(h?.boshlangich_sana ? h.boshlangich_sana.slice(0, 10) : '', { type: 'date', max: bugun() });
+  const sab = h ? sababMaydon() : null;
+  const oyna = drawer({
     sarlavha: h ? `Hisob — ${h.nomi}` : 'Yangi hisob',
     tana: el('div', 'form', maydon('Nomi', nomi, null, true), maydon('Turi', turi), maydon('Valyuta', valyuta),
       maydon('Botdagi kalit so\'zlar', kal, 'Vergul bilan. Botga "taksi 30 kapital" deb yozilsa, shu hisob tanlanadi.', true),
-      el('label', 'row full', faol, 'Faol (o\'chirilsa — hisobotlarda ko\'rinmaydi)')),
+      boshlanadi ? maydon('Boshlang\'ich qoldiq', bosh, 'Hisob shu summadan boshlanadi') : null,
+      boshlanadi ? maydon('Qaysi sanadan', boshSana, 'Shu sanadan keyingi yozuvlar qo\'shiladi') : null,
+      el('label', 'row full', faol, 'Faol (o\'chirilsa — hisobotlarda ko\'rinmaydi, tarix saqlanadi)'),
+      sab?.f ?? null, h ? summaTarixi('hisoblar', h.id) : null,
+      h && h.turi !== 'loyiha' ? ochirishBolimi({ izoh: 'Faqat yozuvi yo\'q hisob o\'chadi. Yozuvi bor bo\'lsa — «Faol» belgisini olib, arxivlang.',
+        amal: async () => { await yoz('hisob/ochir', { id: h.id }); oyna.yop(); await saqlandi(ctx, 'Hisob o\'chirildi', true); } }) : null),
     saqla: async () => {
-      await yoz('hisob', { id: h?.id, nomi: nomi.value, turi: turi.value, valyuta: valyuta.value, kalitlar: kal.value, faol: faol.checked });
+      const body = { id: h?.id, nomi: nomi.value, turi: turi.value, valyuta: valyuta.value, kalitlar: kal.value, faol: faol.checked, sabab: sab?.i.value || null };
+      if (boshlanadi) {
+        const v = bosh.son();
+        if (v != null && (v !== Number(h.boshlangich ?? 0) || !h.boshlangich_sana)) body.boshlangich = v;
+        if (boshSana.value && boshSana.value !== (h.boshlangich_sana ?? '').slice(0, 10)) body.boshlangich_sana = boshSana.value;
+      }
+      await yoz('hisob', body);
       await saqlandi(ctx, 'Saqlandi', true);
     },
   });
@@ -183,12 +216,23 @@ export function kategoriyaForma(ctx, c = null) {
   const kal = el('textarea');
   kal.value = (c?.kalitlar ?? []).join(', ');
   kal.placeholder = 'bozor, magazin, korzinka';
-  drawer({
+  const kk = c ? ctx.katalog.kategoriyalar.find((x) => x.id === c.id) : null;
+  const sab = c ? sababMaydon() : null;
+  const oyna = drawer({
     sarlavha: c ? `Kategoriya — ${c.nomi}` : 'Yangi kategoriya',
     tana: el('div', 'form', maydon('Nomi', nomi), maydon('Belgi (emoji)', belgi), maydon('Oylik limit (so\'m)', limit, 'Bo\'sh — limit yo\'q', true),
-      maydon('Botdagi kalit so\'zlar', kal, 'Vergul bilan. "taksi 30" — "taksi" shu ro\'yxatda bo\'lsa, bot AI\'siz tanib oladi.', true)),
+      maydon('Botdagi kalit so\'zlar', kal, 'Vergul bilan. "taksi 30" — "taksi" shu ro\'yxatda bo\'lsa, bot AI\'siz tanib oladi.', true),
+      sab?.f ?? null, c ? summaTarixi('kategoriyalar', c.id) : null,
+      kk && ['chiqim', 'kirim'].includes(kk.turi) ? ochirishBolimi({
+        izoh: 'Yozuvlari bo\'lsa — ular tanlangan kategoriyaga ko\'chiriladi, keyin bu kategoriya o\'chadi.',
+        tanlovNom: 'Yozuvlarini qaysi kategoriyaga ko\'chirish',
+        tanlovVariant: ctx.katalog.kategoriyalar.filter((x) => x.turi === kk.turi && x.id !== kk.id).map((x) => ({ qiymat: x.id, nom: `${x.belgi} ${x.nomi}` })),
+        amal: async (kochir) => {
+          const r = await yoz('kategoriya/ochir', { id: kk.id, kochir_id: kochir });
+          oyna.yop(); await saqlandi(ctx, r.kochirildi ? `O'chirildi, ${r.kochirildi} ta yozuv ko'chirildi` : 'Kategoriya o\'chirildi', true);
+        } }) : null),
     saqla: async () => {
-      await yoz('kategoriya', { id: c?.id, nomi: nomi.value, belgi: belgi.value, oylik_limit: limit.son(), kalitlar: kal.value });
+      await yoz('kategoriya', { id: c?.id, nomi: nomi.value, belgi: belgi.value, oylik_limit: limit.son(), kalitlar: kal.value, sabab: sab?.i.value || null });
       await saqlandi(ctx, 'Saqlandi', true);
     },
   });
@@ -218,6 +262,8 @@ export function doimiyForma(ctx, d = null) {
     maydon('Turi', seg([['chiqim', 'Xarajat'], ['qarz_qaytardim', 'Qarz to\'lovi']], turi, (v) => { turi = v; korinish(); }), null, true), fKat, fShaxs,
     maydon('Qaysi hisobdan', hisob, 'Belgilansa — kechki xabarda bitta "To\'landi" tugmasi', true),
     maydon('Necha marta qoldi', qolgan, 'Masalan, bo\'lib to\'lashda — qolgan to\'lovlar soni'), el('label', 'row', faol, 'Faol'));
+  const sab = d ? sababMaydon() : null;
+  if (d) tana.append(sab.f, summaTarixi('doimiy_tolovlar', d.id));
   korinish();
   drawer({
     sarlavha: d ? `To'lov — ${d.nomi}` : 'Yangi doimiy to\'lov', tana,
@@ -225,7 +271,7 @@ export function doimiyForma(ctx, d = null) {
       await yoz('doimiy', { id: d?.id, nomi: nomi.value, summa: summa.son(), valyuta: valyuta.value,
         kun: jadval === 'oylik' ? kun.value : null, sana: jadval === 'bir' ? sanaI.value : null, turi,
         kategoriya_id: turi === 'chiqim' ? kat.value || null : null, shaxs_id: turi === 'chiqim' ? null : shaxs.value || null,
-        hisob_id: hisob.value || null, qolgan_marta: qolgan.value === '' ? null : qolgan.value, faol: faol.checked });
+        hisob_id: hisob.value || null, qolgan_marta: qolgan.value === '' ? null : qolgan.value, faol: faol.checked, sabab: sab?.i.value || null });
       await saqlandi(ctx, 'Saqlandi');
     },
   });
@@ -251,9 +297,17 @@ export function tolaForma(ctx, d) {
 export function shaxsForma(ctx, s = null) {
   const ism = inp(s?.ism ?? '', { maxlength: 60 });
   const izoh = inp(s?.izoh ?? '', { maxlength: 200 });
-  drawer({
+  const oyna = drawer({
     sarlavha: s ? s.ism : 'Yangi odam',
-    tana: el('div', 'form', maydon('Ism', ism, null, true), maydon('Izoh', izoh, null, true)),
+    tana: el('div', 'form', maydon('Ism', ism, null, true), maydon('Izoh', izoh, null, true),
+      s ? ochirishBolimi({
+        izoh: 'Yozuvi yo\'q odam o\'chadi. Yozuvi bo\'lsa (masalan, bir odam ikki xil ism bilan yozilgan) — boshqasiga birlashtiring: qarz tarixi ko\'chadi.',
+        tanlovNom: 'Kimga birlashtirish', matn: 'O\'chirish / birlashtirish',
+        tanlovVariant: ctx.katalog.shaxslar.filter((x) => x.id !== s.id).map((x) => ({ qiymat: x.id, nom: x.ism })),
+        amal: async (kochir) => {
+          const r = await yoz('shaxs/ochir', { id: s.id, kochir_id: kochir });
+          oyna.yop(); await saqlandi(ctx, r.kochirildi ? `Birlashtirildi: ${r.kochirildi} ta yozuv ko'chdi` : 'O\'chirildi', true);
+        } }) : null),
     saqla: async () => { await yoz('shaxs', { id: s?.id, ism: ism.value, izoh: izoh.value }); await saqlandi(ctx, 'Saqlandi', true); },
   });
 }
@@ -266,12 +320,16 @@ export function maqsadForma(ctx, m = null) {
   const muddat = inp(m?.muddat ?? '', { type: 'date' });
   const hisob = tanlov(hisobVariantlari(k, (h) => h.turi !== 'loyiha'), m?.hisob_id ?? '', 'Tanlanmagan');
   const izoh = inp(m?.izoh ?? '', { maxlength: 200 });
+  const faol = inp(null, { type: 'checkbox' }); faol.checked = m?.faol ?? true;
+  const sab = m ? sababMaydon() : null;
   drawer({
     sarlavha: m ? m.nomi : 'Yangi maqsad',
     tana: el('div', 'form', maydon('Nomi', nomi, null, true), maydon('Kerakli summa', summa), maydon('Valyuta', valyuta), maydon('Muddat', muddat),
-      maydon('Pul qaysi hisobda yig\'iladi', hisob, 'Yig\'ilgan summa shu hisob qoldig\'idan olinadi'), maydon('Izoh', izoh, null, true)),
+      maydon('Pul qaysi hisobda yig\'iladi', hisob, 'Yig\'ilgan summa shu hisob qoldig\'idan olinadi'), maydon('Izoh', izoh, null, true),
+      m ? el('label', 'row full', faol, 'Faol (erishilgan yoki bekor bo\'lsa — belgini oling)') : null,
+      sab?.f ?? null, m ? summaTarixi('maqsadlar', m.id) : null),
     saqla: async () => {
-      await yoz('maqsad', { id: m?.id, nomi: nomi.value, summa: summa.son(), valyuta: valyuta.value, muddat: muddat.value, hisob_id: hisob.value || null, izoh: izoh.value, faol: true });
+      await yoz('maqsad', { id: m?.id, nomi: nomi.value, summa: summa.son(), valyuta: valyuta.value, muddat: muddat.value, hisob_id: hisob.value || null, izoh: izoh.value, faol: faol.checked, sabab: sab?.i.value || null });
       await saqlandi(ctx, 'Saqlandi');
     },
   });
@@ -283,11 +341,12 @@ export function mulkForma(ctx, m = null) {
   const valyuta = tanlov([{ qiymat: 'USD', nom: 'Dollar' }, { qiymat: 'UZS', nom: 'So\'m' }], m?.valyuta ?? 'USD');
   const izoh = inp(m?.izoh ?? '', { maxlength: 200 });
   const faol = inp(null, { type: 'checkbox' }); faol.checked = m?.faol ?? true;
+  const sab = m ? sababMaydon() : null;
   drawer({
     sarlavha: m ? m.nomi : 'Yangi mulk',
     tana: el('div', 'form', maydon('Nomi', nomi, null, true), maydon('Qiymati', qiymat), maydon('Valyuta', valyuta), maydon('Izoh', izoh, null, true),
-      el('label', 'row', faol, 'Hisobga olinsin (sotilgan bo\'lsa — belgini oling)')),
-    saqla: async () => { await yoz('mulk', { id: m?.id, nomi: nomi.value, qiymat: qiymat.son(), valyuta: valyuta.value, izoh: izoh.value, faol: faol.checked }); await saqlandi(ctx, 'Saqlandi'); },
+      el('label', 'row', faol, 'Hisobga olinsin (sotilgan bo\'lsa — belgini oling)'), sab?.f ?? null, m ? summaTarixi('mulklar', m.id) : null),
+    saqla: async () => { await yoz('mulk', { id: m?.id, nomi: nomi.value, qiymat: qiymat.son(), valyuta: valyuta.value, izoh: izoh.value, faol: faol.checked, sabab: sab?.i.value || null }); await saqlandi(ctx, 'Saqlandi'); },
   });
 }
 
@@ -333,13 +392,15 @@ export function shartlarForma(ctx, l) {
     bonusJoy.lastChild.addEventListener('click', () => { bonus.push({ dan: bugun().slice(0, 7), summa: 0 }); bonusChiz(); });
   };
   fiksChiz(); bonusChiz();
+  const sab = sababMaydon();
   drawer({
     sarlavha: `${l.nomi} — shartlar`,
     tana: el('div', 'form', maydon('Sherik', sherik), maydon('Mening ulushim (%)', ulush), fiksJoy, bonusJoy,
       maydon('Bonus keyingi oyning nechanchi sanasida', bonusKuni),
-      el('p', 'note full', 'Shu oydan boshlab kutilayotgan fiks to\'lovlar yangi shartlarga moslanadi. O\'tgan oylar tarixi o\'zgarmaydi.')),
+      el('p', 'note full', 'Shu oydan boshlab kutilayotgan fiks to\'lovlar yangi shartlarga moslanadi. O\'tgan oylar tarixi o\'zgarmaydi.'),
+      sab.f, summaTarixi('loyihalar', l.id)),
     saqla: async () => {
-      await yoz('loyiha', { id: l.id, sherik: sherik.value, mening_ulushim: Number(ulush.value) / 100,
+      await yoz('loyiha', { id: l.id, sherik: sherik.value, mening_ulushim: Number(ulush.value) / 100, sabab: sab.i.value || null,
         shartlar: { valyuta: sh.valyuta ?? 'USD', fiks, bonus, bonus_kuni: Number(bonusKuni.value) } });
       await saqlandi(ctx, 'Shartlar saqlandi', true);
     },
@@ -364,13 +425,51 @@ export function rejaForma(ctx, l, r = null) {
   const turi = tanlov([{ qiymat: 'fiks', nom: 'Fiks' }, { qiymat: 'bonus', nom: 'Bonus' }], r?.turi ?? 'fiks');
   const summa = summaInp(r?.summa ?? '', {});
   const muddat = inp(r?.muddat ?? bugun(), { type: 'date' });
+  const sab = r ? sababMaydon() : null;
   drawer({
     sarlavha: r ? r.nomi : 'Kutilayotgan to\'lov qo\'shish',
-    tana: el('div', 'form', maydon('Nomi', nomi, null, true), maydon('Turi', turi), maydon(`Summa (${l.shartlar?.valyuta ?? 'USD'})`, summa), maydon('Muddat', muddat)),
+    tana: el('div', 'form', maydon('Nomi', nomi, null, true), maydon('Turi', turi), maydon(`Summa (${l.shartlar?.valyuta ?? 'USD'})`, summa), maydon('Muddat', muddat),
+      sab?.f ?? null, r ? summaTarixi('tushum_rejasi', r.id) : null),
     saqla: async () => {
-      await yoz('reja', { id: r?.id, loyiha_id: l.id, nomi: nomi.value, turi: turi.value, summa: summa.son(), valyuta: l.shartlar?.valyuta ?? 'USD', muddat: muddat.value });
+      await yoz('reja', { id: r?.id, loyiha_id: l.id, nomi: nomi.value, turi: turi.value, summa: summa.son(), valyuta: l.shartlar?.valyuta ?? 'USD', muddat: muddat.value, sabab: sab?.i.value || null });
       await saqlandi(ctx, 'Saqlandi');
     },
   });
 }
 
+
+// ─── Loyiha: yangi va asosiy ma'lumot ───────────────────────────
+
+export function loyihaYangiForma(ctx) {
+  const nomi = inp('', { maxlength: 60, placeholder: 'Masalan: Yangi mijoz' });
+  const sherik = inp('', { maxlength: 60, placeholder: 'yo\'q' });
+  const ulush = inp(100, { type: 'number', min: 1, max: 100 });
+  const valyuta = tanlov([{ qiymat: 'USD', nom: 'Dollar' }, { qiymat: 'UZS', nom: 'So\'m' }], 'USD');
+  const kassa = inp('', { maxlength: 60, placeholder: 'loyiha nomi + «kassasi»' });
+  drawer({
+    sarlavha: 'Yangi loyiha',
+    tana: el('div', 'form', maydon('Loyiha nomi', nomi, null, true), maydon('Sherik', sherik), maydon('Mening ulushim (%)', ulush), maydon('Valyuta', valyuta),
+      maydon('Kassa hisobi nomi', kassa, 'Loyiha puli shu alohida hisobda yuritiladi', true),
+      el('p', 'note full', 'Fiks va bonus shartlarini keyin loyiha sahifasida «Shartlar» orqali qo\'shasiz.')),
+    saqla: async () => {
+      const r = await yoz('loyiha/yangi', { nomi: nomi.value, sherik: sherik.value, mening_ulushim: Number(ulush.value) / 100, valyuta: valyuta.value, kassa_nomi: kassa.value });
+      await saqlandi(ctx, 'Loyiha yaratildi', true);
+      ctx.bor(`loyiha/${r.id}`);
+    },
+  });
+}
+
+export function loyihaMalumotForma(ctx, l) {
+  const nomi = inp(l.nomi, { maxlength: 60 });
+  const kal = inp((l.kalitlar ?? []).join(', '), { placeholder: 'umra, yuksak' });
+  const faol = inp(null, { type: 'checkbox' }); faol.checked = l.faol ?? true;
+  drawer({
+    sarlavha: `${l.nomi} — ma'lumot`,
+    tana: el('div', 'form', maydon('Nomi', nomi, null, true), maydon('Botdagi kalit so\'zlar', kal, 'Botga "umra fiks 1500" — shu so\'z bilan loyiha tanib olinadi', true),
+      el('label', 'row full', faol, 'Faol (o\'chirilsa — loyiha va kassasi arxivga o\'tadi, tarix saqlanadi)')),
+    saqla: async () => {
+      await yoz('loyiha/malumot', { id: l.id, nomi: nomi.value, kalitlar: kal.value, faol: faol.checked });
+      await saqlandi(ctx, faol.checked ? 'Saqlandi' : 'Loyiha arxivlandi', true);
+    },
+  });
+}

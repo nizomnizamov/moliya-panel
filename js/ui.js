@@ -51,6 +51,7 @@ export const IKON = {
   loyiha: 'M4 20h16M6 20V9l6-5 6 5v11M10 20v-5h4v5',
   maqsad: 'M12 21a9 9 0 1 0-9-9M12 16a4 4 0 1 0-4-4M12 12l7-7M16 5h3v3',
   kripto: 'M8 4v16M12 4v2M12 18v2M8 7h6a2.5 2.5 0 0 1 0 5H8M8 12h7a2.5 2.5 0 0 1 0 5H8',
+  tarix: 'M3 12a9 9 0 1 0 2.6-6.4M3 4v4h4M12 7v5l3 2',
   sozlamalar: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z',
 };
 
@@ -290,4 +291,38 @@ export function jadval(ustunlar, qatorlar, o = {}) {
   t.append(tb);
   if (o.futer) t.append(el('tfoot', null, el('tr', null, o.futer.map((x, i) => el('td', ustunlar[i]?.num ? 'num' : null, x)))));
   return el('div', 'tbl-wrap', t);
+}
+
+/**
+ * Summa — joyida tahrirlanadi: bosilsa maydon, Enter yoki chetga bosish — saqlash, Esc — bekor.
+ * Qator bosilishi (tahrirlash oynasi) ishga tushmaydi.
+ */
+export function joyidaSumma(korinish, qiymat, saqla) {
+  const w = el('span', 'joyida', korinish);
+  w.title = 'Summani o\'zgartirish uchun bosing';
+  w.tabIndex = 0;
+  w.setAttribute('role', 'button');
+  const och = (e) => {
+    e.stopPropagation();
+    if (w.querySelector('input')) return;
+    const i = summaInp(qiymat, { class: 'inp-sm', 'aria-label': 'Yangi summa' });
+    w.replaceChildren(i);
+    i.focus(); i.select();
+    let tugadi = false;
+    const qaytar = () => { tugadi = true; w.replaceChildren(korinish); };
+    const yozish = async () => {
+      if (tugadi) return;
+      tugadi = true;
+      const v = i.son();
+      if (v == null || v === Number(qiymat)) { w.replaceChildren(korinish); return; }
+      i.disabled = true;
+      try { await saqla(v); } catch (err) { toast(err.message || String(err), false); w.replaceChildren(korinish); }
+    };
+    i.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') yozish(); if (ev.key === 'Escape') qaytar(); });
+    i.addEventListener('blur', yozish);
+    i.addEventListener('click', (ev) => ev.stopPropagation());
+  };
+  w.addEventListener('click', och);
+  w.addEventListener('keydown', (e) => { if (e.key === 'Enter') och(e); });
+  return w;
 }

@@ -17,6 +17,7 @@ const SAHIFALAR = {
   maqsad: () => import('./sahifa/maqsad.js'),
   kripto: () => import('./sahifa/kripto.js'),
   sozlamalar: () => import('./sahifa/sozlamalar.js'),
+  tarix: () => import('./sahifa/tarix.js'),
 };
 
 /** Sahifalar umumiy holati: katalog (hisoblar, kategoriyalar, ...) va qayta chizish. */
@@ -46,7 +47,7 @@ function menyu() {
     ['Majburiyatlar', [['tolovlar', 'To\'lovlar'], ['qarzlar', 'Qarzlar']]],
     ['Loyihalar', loyihalar.map((l) => [`loyiha/${l.id}`, l.nomi])],
     ['Kapital', [['maqsad', 'Maqsad va mulk'], ['kripto', 'Kripto']]],
-    ['Tizim', [['sozlamalar', 'Sozlamalar']]],
+    ['Tizim', [['tarix', 'O\'zgarishlar tarixi'], ['sozlamalar', 'Sozlamalar']]],
   ];
   nav.replaceChildren();
   for (const [g, roy] of guruhlar) {
@@ -169,6 +170,7 @@ async function boshlash() {
     oldindan([
       ['hisoblar'], ...(yozuvlar ? [['yozuvlar', yozuvlar.sorov()]] : []), ['byudjet', { oy }], ['tolovlar'], ['qarzlar'], ['tahlil', { oylar: 6 }],
       ['loyiha', { id: ctx.katalog?.loyihalar?.[0]?.id }], ['maqsad'], ['kripto'], ['sozlamalar'], ['bozor'],
+      ...(modullar.tarix ? [['tarix', modullar.tarix.sorov()]] : []),
     ]);
   }, 800);
 }
