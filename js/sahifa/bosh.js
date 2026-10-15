@@ -70,6 +70,11 @@ export async function chiz(view, ctx) {
     view.append(el('div', 'note orange row', el('span', null, `🎙 ${d.tasdiqlanmagan} ta yozuv tasdiqlanmagan (ovoz yoki skrinshotdan) — tasdiqlanmaguncha hisobotlarga kirmaydi.`),
       el('span', 'sp'), btn('Ko\'rish', 'btn-sm', () => ctx.bor('yozuvlar/kutilmoqda'))));
   }
+  // Minusdagi hisob: chiqim boshqa puldan bo'lgan (masalan, uy jamg'armasidan) yoki qoldiq eskirgan.
+  for (const h of k.hisoblar.filter((x) => x.faol && x.boshlangich_sana && x.qoldiq < 0 && x.turi !== 'birja' && x.turi !== 'loyiha')) {
+    view.append(el('div', 'note orange row', el('span', null, `⚠️ ${h.nomi} minusda: ${pul(h.qoldiq, h.valyuta)}. Chiqim boshqa puldan bo'lgan bo'lsa — yozuvning hisobini o'zgartiring; qoldiq eskirgan bo'lsa — haqiqiy qoldiqni kiriting.`),
+      el('span', 'sp'), btn('Yozuvlari', 'btn-sm', () => ctx.bor(`yozuvlar/hisob-${h.id}`))));
+  }
 
   // ─── Pul oqimi + xulosalar ───
   const g1 = torTo(view);
@@ -126,7 +131,7 @@ export async function chiz(view, ctx) {
     // Hisoblar qoldig'i — sof boylikning "pul" qismi qayerda turgani.
     const h = karta('Hisoblarda', Object.assign(el('a', 'btn btn-sm btn-ghost', 'Hisoblar'), { href: '#/hisoblar' }));
     h.append(faktlar(k.hisoblar.filter((x) => x.faol && x.turi !== 'loyiha').map((x) =>
-      [x.nomi, x.boshlangich_sana ? pul(x.qoldiq, x.valyuta) : 'kiritilmagan', x.boshlangich_sana ? null : 'orange'])));
+      [x.nomi, x.boshlangich_sana ? pul(x.qoldiq, x.valyuta) : 'kiritilmagan', !x.boshlangich_sana ? 'orange' : x.qoldiq < 0 ? 'red' : null])));
     u.append(h);
     g2.append(u);
   }

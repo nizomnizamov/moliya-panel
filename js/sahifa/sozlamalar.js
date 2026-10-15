@@ -62,6 +62,26 @@ export async function chiz(view, ctx) {
       el('div', 'row', btn('Shu brauzerdan chiqish', 'btn-sm', () => { chiqish(); location.reload(); }), el('span', 'sp'),
         xavfliBtn('Barcha qurilmalardan chiqish', async () => { await yoz('chiqish-hammasi', {}); chiqish(); location.reload(); }, 'btn-sm btn-bad'))));
     u.append(c3);
+    // Tizim holati: rejali xabarlar rostdan ketdimi, xato bo'ldimi (bot va funksiya loglari tez o'chadi — bu jurnal saqlanadi).
+    const t = d.tizim;
+    const oxirgi = (nom) => t.oxirgi.find((x) => x.vazifa === nom);
+    const vaqt = (v) => `${v.slice(8, 10)}.${v.slice(5, 7)} ${v.slice(11)}`;   // "2026-10-15 22:00" → "15.10 22:00"
+    const qator = (nom, sarlavha) => {
+      const x = oxirgi(nom);
+      return [sarlavha, x ? `${vaqt(x.vaqt)} · ${x.holat === 'ok' ? 'ketdi' : 'xato'}` : 'hali ishlamagan', x ? (x.holat === 'ok' ? 'green' : 'red') : null];
+    };
+    const c4 = karta('Tizim holati', t.xatolar.length ? pill(`${t.xatolar.length} ta xato`, 'orange') : pill('xatosiz', 'green'));
+    c4.append(faktlar([
+      qator('kechki', `Kechki xabar (${String(d.xabarlar.kechki_soat).padStart(2, '0')}:00)`),
+      qator('haftalik', 'Haftalik tahlil (yakshanba)'),
+      qator('bozor', 'Bozor sharhi (dushanba)'),
+      ['Bitget sinxroni (har soat)', t.kripto ? vaqt(t.kripto) : '—', t.kripto ? 'green' : null],
+    ]));
+    if (t.xatolar.length) {
+      c4.append(jadval([{ nom: 'Vaqt', f: (x) => el('span', 'muted small', vaqt(x.vaqt)) }, { nom: 'Qayerda', f: (x) => x.vazifa },
+        { nom: 'Xato', f: (x) => el('span', 'small', x.tafsilot ?? '') }], t.xatolar, { cls: 'tbl-sm' }));
+    }
+    u.append(c4);
     g1.append(u);
   }
 
@@ -99,7 +119,7 @@ export async function chiz(view, ctx) {
       try { const r = await yoz('kripto/sinxron', {}); toast(`Bitget yangilandi${r.olindi ? `: ${r.olindi.slice(11)}` : ''}`); } catch (e) { toast(e.message, false); } finally { sinx.disabled = false; }
     });
     const bozorB = xavfliBtn('Bozor sharhini hozir yangilash (~$0.02)', async () => {
-      try { await yoz('bozor/yangila', {}); toast('Bozor sharhi yangilandi — Tahlil sahifasida'); } catch (e) { toast(e.message, false); }
+      try { await yoz('bozor/yangila', {}); toast('Bozor sharhi yangilandi — Tahlil sahifasida va Telegram\'da'); } catch (e) { toast(e.message, false); }
     }, 'btn-sm');
     const zaxira = btn('To\'liq zaxira (JSON) yuklab olish', 'btn-sm', async () => {
       try {

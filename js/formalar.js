@@ -1,6 +1,6 @@
 // Tahrirlash oynalari (drawer). Har biri saqlangach — toast va sahifa yangilanadi.
 
-import { yoz } from './api.js';
+import { ol, yoz } from './api.js';
 import { bugun, pul, sana } from './fmt.js';
 import { summaTarixi } from './tarix.js';
 import { drawer, el, inp, maydon, seg, summaInp, tanlov, toast, xavfliBtn } from './ui.js';
@@ -33,9 +33,12 @@ function ochirishBolimi({ izoh, tanlovVariant, tanlovNom, matn = 'O\'chirish', a
 
 const saqlandi = async (ctx, matn, katalog = false) => {
   toast(matn);
-  if (katalog) await ctx.katalogYangila();
+  // Katalogda hisob qoldiqlari ham bor — har yozuvdan keyin fonda yangilanadi ("pul yetmaydi" eslatmasi eskirmasin).
+  if (katalog) await ctx.katalogYangila(); else ctx.katalogYangila().catch(() => {});
   ctx.yangila();
 };
+
+const CHIQUVCHI = ['chiqim', 'otkazma', 'qarz_berdim', 'qarz_qaytardim'];
 
 // ─── Yozuv (chiqim, kirim, o'tkazma, qarz) ──────────────────────
 
@@ -60,6 +63,7 @@ export function yozuvForma(ctx, { yozuv = null, preset = {} } = {}) {
   const shaxs = tanlov([...k.shaxslar.map((s) => ({ qiymat: s.id, nom: s.ism })), { qiymat: 'yangi', nom: '+ Yangi odam…' }], y.shaxs_id ?? '', 'Tanlang…');
   const yangiShaxs = inp('', { placeholder: 'Ism' });
   const izoh = inp(y.izoh ?? '', { placeholder: 'Masalan: Korzinka, taksi', maxlength: 200 });
+  const yetmaydi = el('p', 'note orange full');
 
   const hisobOl = (id) => k.hisoblar.find((h) => String(h.id) === String(id));
   const katToldir = () => {
@@ -106,16 +110,66 @@ export function yozuvForma(ctx, { yozuv = null, preset = {} } = {}) {
     f.yangiShaxs.hidden = !(turi === 'qarz' && shaxs.value === 'yangi');
     f.hisob.querySelector('span').textContent = turi === 'otkazma' ? 'Qaysi hisobdan' : 'Hisob';
     katToldir();
+    yetishmi();
+    qarzniTekshir();
   };
+  // Hisobda shuncha pul bormi (bot ham so'raydi): yo'q bo'lsa — boshqa puldan ishlatilgandir.
+  const yetishmi = () => {
+    const tur = turi === 'qarz' ? qarzTuri : turi;
+    const h = turi === 'qarz' ? hisobOl(hisobQarz.value) : hisobOl(hisob.value);
+    const v = summa.son();
+    yetmaydi.hidden = true;
+    if (!v || !h || !CHIQUVCHI.includes(tur) || h.qoldiq == null || !h.boshlangich_sana || h.turi === 'birja' || h.turi === 'loyiha') return;
+    const bor = h.qoldiq + (yozuv?.id && yozuv.holat === 'tasdiq' && String(yozuv.hisob_id) === String(h.id) && CHIQUVCHI.includes(yozuv.turi) ? Number(yozuv.summa) : 0);
+    if (v <= bor) return;
+    yetmaydi.hidden = false;
+    yetmaydi.textContent = `${h.nomi}da ${pul(bor, h.valyuta)} bor — bu yozuvdan keyin ${pul(bor - v, h.valyuta)} bo'lib qoladi. Boshqa puldan ishlatgan bo'lsangiz, hisobni o'zgartiring.`;
+  };
+  summa.addEventListener('input', yetishmi);
+
+  // Odam bilan ochiq qarz bo'lsa: kirim — qarzidan qaytgandir, chiqim — qarz to'lovidir (bot ham shunday so'raydi).
+  const qarzEslatma = el('p', 'note full');
+  qarzEslatma.hidden = true;
+  let qarzlar = null;
+  const shaxsTop = (matn) => {
+    const sozlar = matn.toLowerCase().replace(/[‘’ʻʼ`´]/g, "'").split(/[^\p{L}\d']+/u).filter(Boolean);
+    return qarzlar?.shaxslar.find((x) => [x.ism, ...(x.kalitlar ?? [])].map((k0) => k0.toLowerCase()).some((k0) => k0.length >= 3 && sozlar.some((w) => w.startsWith(k0))));
+  };
+  const qarzniTekshir = () => {
+    qarzEslatma.hidden = true;
+    if (!qarzlar || (turi !== 'kirim' && turi !== 'chiqim')) return;
+    const odam = shaxsTop(izoh.value);
+    const h = hisobOl(hisob.value);
+    const q = odam && h && odam.qoldiqlar.find((x) => x.valyuta === h.valyuta);
+    if (!q || (turi === 'kirim' ? q.qoldiq <= 0 : q.qoldiq >= 0)) return;
+    const [matn, tugma, tur] = turi === 'kirim'
+      ? [`${odam.ism} sizga ${pul(q.qoldiq, q.valyuta)} qarzdor. Bu pul qarzidan qaytgan bo'lsa — qarz sifatida yozing, aks holda qarzi kamaymaydi.`, 'Qarzidan qaytardi deb yozish', 'Menga qaytardi']
+      : [`Siz ${odam.ism}ga ${pul(-q.qoldiq, q.valyuta)} qarzdorsiz. Bu qarz to'lovi bo'lsa — qarz sifatida yozing.`, 'Qarzimni to\'ladim deb yozish', 'Qarzimni qaytardim'];
+    const b = el('button', 'btn btn-sm', tugma);
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      const hid = hisob.value;
+      [...turSeg.querySelectorAll('button')].find((x) => x.textContent === 'Qarz')?.click();
+      [...f.qarzTuri.querySelectorAll('button')].find((x) => x.textContent === tur)?.click();
+      shaxs.value = String(odam.id);
+      hisobQarz.value = hid;
+      yangilaKorinish();
+    });
+    qarzEslatma.replaceChildren(`🤝 ${matn} `, b);
+    qarzEslatma.hidden = false;
+  };
+  izoh.addEventListener('input', qarzniTekshir);
+  ol('qarzlar').then((r) => { qarzlar = r; qarzniTekshir(); }).catch(() => {});
   hisob.addEventListener('change', yangilaKorinish);
   hisobQarz.addEventListener('change', yangilaKorinish);
   ga.addEventListener('change', yangilaKorinish);
   shaxs.addEventListener('change', yangilaKorinish);
 
   const turSeg = seg([['chiqim', 'Chiqim'], ['kirim', 'Kirim'], ['otkazma', 'O\'tkazma'], ['qarz', 'Qarz']], turi, (v) => { turi = v; yangilaKorinish(); });
+  f.qarzTuri = maydon('Qarz turi', seg(QARZ, qarzTuri, (v) => { qarzTuri = v; yetishmi(); }), null, true);
   const sab = yozuv?.id ? sababMaydon() : null;
-  const tana = el('div', 'form', maydon('Turi', turSeg, null, true), f.qarzTuri, f.summa, f.sana, f.hisob, f.hisobQarz, f.ga, f.gaSumma,
-    f.kat, f.shaxs, f.yangiShaxs, f.izoh, sab?.f ?? null, yozuv?.id ? summaTarixi('yozuvlar', yozuv.id) : null);
+  const tana = el('div', 'form', maydon('Turi', turSeg, null, true), f.qarzTuri, f.summa, f.sana, f.hisob, f.hisobQarz, yetmaydi, f.ga, f.gaSumma,
+    f.kat, f.shaxs, f.yangiShaxs, f.izoh, qarzEslatma, sab?.f ?? null, yozuv?.id ? summaTarixi('yozuvlar', yozuv.id) : null);
   yangilaKorinish();
 
   const qoshimcha = [];
@@ -279,15 +333,15 @@ export function doimiyForma(ctx, d = null) {
 
 export function tolaForma(ctx, d) {
   const k = ctx.katalog;
-  const mos = k.hisoblar.filter((h) => h.faol && h.valyuta === d.valyuta && (d.hisob_id ? h.id === d.hisob_id : h.turi !== 'loyiha' && h.turi !== 'jamgarma'));
+  const mos = k.hisoblar.filter((h) => h.faol && h.valyuta === d.valyuta && (d.hisob_id ? h.id === d.hisob_id : h.turi !== 'loyiha'));
   const hisob = tanlov(mos.map((h) => ({ qiymat: h.id, nom: `${h.nomi} · ${pul(h.qoldiq ?? 0, h.valyuta)}` })), d.hisob_id ?? k.standartId?.[d.valyuta] ?? mos[0]?.id);
   drawer({
     sarlavha: `To'landi — ${d.nomi}`,
     tana: el('div', 'form', el('div', 'fld full', el('span', null, 'Summa'), el('b', 'num', pul(d.summa, d.valyuta))), maydon('Qaysi hisobdan', hisob, null, true)),
     saqlaNom: 'To\'landi',
     saqla: async () => {
-      await yoz('doimiy/tola', { id: d.id, davr: d.davr, hisob_id: hisob.value });
-      await saqlandi(ctx, `${d.nomi} — yozildi`, true);
+      const r = await yoz('doimiy/tola', { id: d.id, davr: d.davr, hisob_id: hisob.value });
+      await saqlandi(ctx, r.natija === 'boglandi' ? `${d.nomi}: ${r.kun} da yozilgan ekan — bog'landi, takror yozilmadi` : `${d.nomi} — yozildi`, true);
     },
   });
 }
